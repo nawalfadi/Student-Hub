@@ -8,7 +8,7 @@
       name="description"
       content="Streamlines university campus life by offering role-based dashboards for students, club leaders, advisors, and committees to manage events, attendance, and engagement."
     />
-    <title>Student Hub</title>
+    <title>Student Hub — Pitch</title>
     <script>
       (function () {
         try {
@@ -22,6 +22,12 @@
                 : "dark";
           document.documentElement.classList.toggle("dark", theme === "dark");
           document.documentElement.style.colorScheme = theme;
+        } catch (e) {}
+        try {
+          var lang = localStorage.getItem("yu-lang");
+          if (lang !== "en" && lang !== "ar") lang = "en";
+          document.documentElement.lang = lang;
+          document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
         } catch (e) {}
       })();
     </script>

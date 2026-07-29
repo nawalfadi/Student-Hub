@@ -14,4 +14,10 @@ export default defineConfig({
     host: true,
     port: 5173,
   },
+  preview: {
+    host: true,
+    port: 5173,
+  },
+  // SPA fallback so /app serves index.html in preview/build
+  appType: 'spa',
 })

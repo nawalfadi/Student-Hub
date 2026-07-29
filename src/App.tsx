@@ -2,13 +2,14 @@ import { useState, useEffect, useCallback, useMemo, useRef, createContext, useCo
 import { motion, AnimatePresence } from "framer-motion"
 import type { LucideIcon } from "lucide-react"
 import yuLogoWhite from "./assets/yu-logo-white.png"
+import { LangToggle, useLang } from "./i18n"
 import {
   GraduationCap, Crown, ShieldCheck, Landmark,
   LayoutGrid, CalendarDays, QrCode, Users, Sparkles, Bell,
   LayoutDashboard, SquarePen, ScanLine,
   ClipboardCheck, BarChart3,
   CalendarRange, Star, BadgeCheck,
-  LogOut, ArrowRight, MapPin, Clock,
+  LogOut, ArrowRight, ArrowLeft, MapPin, Clock,
   CheckCircle2, Check, X,
   Award, TrendingUp, Rocket,
   UserPlus, UserCheck,
@@ -61,13 +62,14 @@ function ThemeToggle({
   className?: string
   style?: CSSProperties
 }) {
+  const { t } = useLang()
   const isDark = theme === "dark"
   return (
     <button
       type="button"
       onClick={onToggle}
-      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      title={isDark ? "Light mode" : "Dark mode"}
+      aria-label={isDark ? t("theme.light") : t("theme.dark")}
+      title={isDark ? t("theme.light") : t("theme.dark")}
       className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 hover:-translate-y-px bg-[var(--card)] border ${className}`}
       style={{ borderColor: "var(--border)", boxShadow: "var(--shadow-xs)", color: "var(--text-secondary)", ...style }}
     >
@@ -1223,46 +1225,39 @@ function QRCode({ size = 160 }: { size?: number }) {
 }
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
-const NAV_ITEMS: Record<Role, { icon: LucideIcon; label: string; view: View }[]> = {
+const NAV_ITEMS: Record<Role, { icon: LucideIcon; view: View }[]> = {
   student: [
-    { icon: LayoutGrid, label: "Home Feed", view: "feed" },
-    { icon: CalendarDays, label: "Events Hub", view: "events" },
-    { icon: QrCode, label: "My QR Pass", view: "qr-pass" },
-    { icon: Users, label: "My Clubs", view: "clubs" },
-    { icon: Sparkles, label: "Rewards", view: "rewards" },
-    { icon: BookOpen, label: "Club Framework", view: "framework" },
-    { icon: Bell, label: "Notifications", view: "notifications" },
+    { icon: LayoutGrid, view: "feed" },
+    { icon: CalendarDays, view: "events" },
+    { icon: QrCode, view: "qr-pass" },
+    { icon: Users, view: "clubs" },
+    { icon: Sparkles, view: "rewards" },
+    { icon: BookOpen, view: "framework" },
+    { icon: Bell, view: "notifications" },
   ],
   president: [
-    { icon: LayoutDashboard, label: "Command Center", view: "command" },
-    { icon: SquarePen, label: "Create Event", view: "create-event" },
-    { icon: ScanLine, label: "QR Scanner", view: "scanner" },
-    { icon: Users, label: "Members", view: "members" },
-    { icon: BookOpen, label: "Club Framework", view: "framework" },
-    { icon: Bell, label: "Notifications", view: "notifications" },
+    { icon: LayoutDashboard, view: "command" },
+    { icon: SquarePen, view: "create-event" },
+    { icon: ScanLine, view: "scanner" },
+    { icon: Users, view: "members" },
+    { icon: BookOpen, view: "framework" },
+    { icon: Bell, view: "notifications" },
   ],
   advisor: [
-    { icon: ClipboardCheck, label: "Approvals", view: "approvals" },
-    { icon: BarChart3, label: "Analytics", view: "analytics" },
-    { icon: BookOpen, label: "Club Framework", view: "framework" },
-    { icon: Bell, label: "Notifications", view: "notifications" },
+    { icon: ClipboardCheck, view: "approvals" },
+    { icon: BarChart3, view: "analytics" },
+    { icon: BookOpen, view: "framework" },
+    { icon: Bell, view: "notifications" },
   ],
   committee: [
-    { icon: ClipboardCheck, label: "Event Approvals", view: "event-approvals" },
-    { icon: CalendarRange, label: "Master Calendar", view: "calendar" },
-    { icon: Star, label: "Event Evaluation", view: "evaluation" },
-    { icon: BadgeCheck, label: "Certifications", view: "certifications" },
-    { icon: BarChart3, label: "Analytics", view: "analytics" },
-    { icon: BookOpen, label: "Club Framework", view: "framework" },
-    { icon: Bell, label: "Notifications", view: "notifications" },
+    { icon: ClipboardCheck, view: "event-approvals" },
+    { icon: CalendarRange, view: "calendar" },
+    { icon: Star, view: "evaluation" },
+    { icon: BadgeCheck, view: "certifications" },
+    { icon: BarChart3, view: "analytics" },
+    { icon: BookOpen, view: "framework" },
+    { icon: Bell, view: "notifications" },
   ],
-}
-
-const ROLE_LABELS: Record<Role, string> = {
-  student: "Student",
-  president: "Club President",
-  advisor: "Club Advisor",
-  committee: "Student Affairs",
 }
 
 function Sidebar({
@@ -1278,18 +1273,19 @@ function Sidebar({
   onLogout: () => void
   userName: string
 }) {
+  const { t, isAr } = useLang()
   const items = NAV_ITEMS[role]
   const RoleIcon = ROLE_ICONS[role]
 
   return (
     <aside
       className="noise flex flex-col h-full relative"
-      style={{ background: "var(--obsidian)", width: 272, minWidth: 272, borderRight: "1px solid var(--border)" }}
+      style={{ background: "var(--obsidian)", width: 272, minWidth: 272, borderInlineEnd: "1px solid var(--border)" }}
     >
       {/* Logo */}
       <div className="px-6 pt-8 pb-7 relative z-10">
         <img src={yuLogoWhite} alt="Al Yamamah University" className="h-12 w-auto mb-2.5" />
-        <p className="text-[10.5px] font-bold mono uppercase tracking-widest" style={{ color: "var(--brand)" }}>Student Hub</p>
+        <p className={`text-[10.5px] font-bold uppercase ${isAr ? "tracking-[0.08em]" : "mono tracking-widest"}`} style={{ color: "var(--brand)" }}>{t("login.brand")}</p>
       </div>
 
       {/* Role badge */}
@@ -1299,8 +1295,8 @@ function Sidebar({
           style={{ background: "rgba(255,255,255,0.035)", borderColor: "rgba(255,255,255,0.08)" }}
         >
           <RoleIcon size={15} strokeWidth={2} color="var(--brand)" />
-          <span className="text-[12.5px] font-semibold" style={{ color: "rgba(255,255,255,0.82)" }}>{ROLE_LABELS[role]}</span>
-          <span className="ml-auto w-1.5 h-1.5 rounded-full animate-pulse-dot" style={{ background: "var(--brand)" }} />
+          <span className="text-[12.5px] font-semibold" style={{ color: "rgba(255,255,255,0.82)" }}>{t(`role.${role}`)}</span>
+          <span className="ms-auto w-1.5 h-1.5 rounded-full animate-pulse-dot" style={{ background: "var(--brand)" }} />
         </div>
       </div>
 
@@ -1313,7 +1309,7 @@ function Sidebar({
             <button
               key={item.view}
               onClick={() => onNavigate(item.view)}
-              className="relative w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[13.5px] font-medium text-left transition-colors duration-200"
+              className="relative w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[13.5px] font-medium text-start transition-colors duration-200"
               style={{ color: active ? "white" : "rgba(255,255,255,0.46)" }}
             >
               {active && (
@@ -1325,7 +1321,7 @@ function Sidebar({
                 />
               )}
               <Icon size={17} strokeWidth={2} className="relative z-10 shrink-0" color={active ? "var(--brand)" : undefined} />
-              <span className="relative z-10">{item.label}</span>
+              <span className="relative z-10">{t(`nav.${item.view}`)}</span>
             </button>
           )
         })}
@@ -1343,7 +1339,7 @@ function Sidebar({
             onClick={onLogout}
             className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 hover:bg-white/5"
             style={{ color: "rgba(255,255,255,0.3)" }}
-            title="Sign out"
+            title={t("login.signOut")}
           >
             <LogOut size={15} strokeWidth={2} />
           </button>
@@ -1377,25 +1373,33 @@ function LoginScreen({
   theme: Theme
   onToggleTheme: () => void
 }) {
+  const { t, isAr } = useLang()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [role, setRole] = useState<Role>("student")
 
-  const roles: { value: Role; label: string; icon: LucideIcon }[] = [
-    { value: "student", label: "Student", icon: GraduationCap },
-    { value: "president", label: "Club President", icon: Crown },
-    { value: "advisor", label: "Club Advisor", icon: ShieldCheck },
-    { value: "committee", label: "Student Affairs", icon: Landmark },
+  const roles: { value: Role; icon: LucideIcon }[] = [
+    { value: "student", icon: GraduationCap },
+    { value: "president", icon: Crown },
+    { value: "advisor", icon: ShieldCheck },
+    { value: "committee", icon: Landmark },
   ]
+
+  const chromeStyle = {
+    borderColor: "rgba(255,255,255,0.15)",
+    color: "rgba(255,255,255,0.85)",
+    background: "rgba(255,255,255,0.1)",
+  } as CSSProperties
 
   return (
     <div className="noise min-h-screen flex relative overflow-hidden" style={{ background: "var(--gradient-hero)" }}>
-      <div className="absolute top-5 right-5 z-20">
+      <div className="absolute top-5 z-20 flex items-center gap-2" style={{ insetInlineEnd: "1.25rem" }}>
+        <LangToggle variant="hero" />
         <ThemeToggle
           theme={theme}
           onToggle={onToggleTheme}
           className="bg-white/10 hover:bg-white/15"
-          style={{ borderColor: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.85)", background: "rgba(255,255,255,0.1)" }}
+          style={chromeStyle}
         />
       </div>
       <div className="animate-float absolute w-[560px] h-[560px] rounded-full pointer-events-none" style={{ background: "var(--brand)", opacity: 0.14, filter: "blur(140px)", top: "-14%", left: "4%" }} />
@@ -1406,24 +1410,24 @@ function LoginScreen({
         <div>
           <div className="mb-20 animate-fade-up">
             <img src={yuLogoWhite} alt="Al Yamamah University" className="h-20 w-auto mb-3" />
-            <p className="text-[10.5px] font-bold mono uppercase tracking-widest" style={{ color: "var(--brand)" }}>Student Hub</p>
+            <p className={`text-[10.5px] font-bold uppercase ${isAr ? "tracking-[0.08em]" : "mono tracking-widest"}`} style={{ color: "var(--brand)" }}>{t("login.brand")}</p>
           </div>
           <h1 className="font-display text-[52px] font-extrabold text-white leading-[1.05] mb-5 animate-fade-up" style={{ animationDelay: "70ms" }}>
-            Your campus,
+            {t("login.headline1")}
             <br />
             <span style={{ background: "var(--gradient-brand)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>
-              elevated.
+              {t("login.headline2")}
             </span>
           </h1>
           <p className="text-[16px] leading-relaxed max-w-sm animate-fade-up" style={{ color: "rgba(255,255,255,0.45)", animationDelay: "140ms" }}>
-            One hub for events, clubs, attendance, and every moment of your journey at YU.
+            {t("login.sub")}
           </p>
         </div>
         <div className="flex gap-3 flex-wrap animate-fade-up" style={{ animationDelay: "210ms" }}>
           {[
-            { icon: CalendarDays, label: "1,400+ events" },
-            { icon: Users, label: "42 active clubs" },
-            { icon: Sparkles, label: "Vision 2030 aligned" },
+            { icon: CalendarDays, label: t("login.stat.events") },
+            { icon: Users, label: t("login.stat.clubs") },
+            { icon: Sparkles, label: t("login.stat.vision") },
           ].map((item) => (
             <div
               key={item.label}
@@ -1443,11 +1447,11 @@ function LoginScreen({
           className="w-full max-w-[380px] rounded-[var(--r-2xl)] p-8 border animate-scale-in"
           style={{ background: "rgba(255,255,255,0.045)", borderColor: "rgba(255,255,255,0.09)", backdropFilter: "blur(24px)", boxShadow: "var(--shadow-lg)" }}
         >
-          <h2 className="font-display text-[22px] font-bold text-white mb-1">Sign in</h2>
-          <p className="text-[13px] mb-7" style={{ color: "rgba(255,255,255,0.4)" }}>Use your YU university credentials</p>
+          <h2 className="font-display text-[22px] font-bold text-white mb-1">{t("login.title")}</h2>
+          <p className="text-[13px] mb-7" style={{ color: "rgba(255,255,255,0.4)" }}>{t("login.hint")}</p>
 
           <div className="space-y-3.5 mb-6">
-            <FieldShell label="University email">
+            <FieldShell label={t("login.email")}>
               <input
                 type="email"
                 value={email}
@@ -1456,7 +1460,7 @@ function LoginScreen({
                 className="w-full bg-transparent text-white text-sm outline-none placeholder:text-white/25"
               />
             </FieldShell>
-            <FieldShell label="Password">
+            <FieldShell label={t("login.password")}>
               <input
                 type="password"
                 value={password}
@@ -1467,7 +1471,7 @@ function LoginScreen({
             </FieldShell>
 
             <div>
-              <p className="text-[9.5px] font-bold mono uppercase tracking-widest mb-2" style={{ color: "rgba(255,255,255,0.35)" }}>Role</p>
+              <p className={`text-[9.5px] font-bold uppercase mb-2 ${isAr ? "tracking-[0.08em]" : "mono tracking-widest"}`} style={{ color: "rgba(255,255,255,0.35)" }}>{t("login.role")}</p>
               <div className="grid grid-cols-2 gap-2">
                 {roles.map((r) => {
                   const selected = role === r.value
@@ -1475,7 +1479,7 @@ function LoginScreen({
                     <button
                       key={r.value}
                       onClick={() => setRole(r.value)}
-                      className="flex flex-col items-start px-3.5 py-3 rounded-xl text-left transition-all duration-200 border"
+                      className="flex flex-col items-start px-3.5 py-3 rounded-xl text-start transition-all duration-200 border"
                       style={{
                         background: selected ? "rgba(246,137,55,0.12)" : "rgba(255,255,255,0.03)",
                         borderColor: selected ? "var(--brand)" : "rgba(255,255,255,0.08)",
@@ -1483,7 +1487,7 @@ function LoginScreen({
                     >
                       <r.icon size={16} strokeWidth={2} color={selected ? "var(--brand)" : "rgba(255,255,255,0.4)"} className="mb-1.5" />
                       <span className="text-[12.5px] font-semibold" style={{ color: selected ? "white" : "rgba(255,255,255,0.55)" }}>
-                        {r.label}
+                        {t(`role.${r.value}`)}
                       </span>
                     </button>
                   )
@@ -1492,10 +1496,10 @@ function LoginScreen({
             </div>
           </div>
 
-          <Button variant="primary" size="lg" icon={ArrowRight} iconPosition="right" onClick={() => onLogin(role)} className="w-full mb-4">
-            Continue
+          <Button variant="primary" size="lg" icon={isAr ? ArrowLeft : ArrowRight} iconPosition="right" onClick={() => onLogin(role)} className="w-full mb-4">
+            {t("login.continue")}
           </Button>
-          <p className="text-center text-[11.5px]" style={{ color: "rgba(255,255,255,0.25)" }}>Authorized users only · Al Yamamah University</p>
+          <p className="text-center text-[11.5px]" style={{ color: "rgba(255,255,255,0.25)" }}>{t("login.footer")}</p>
         </div>
       </div>
     </div>
@@ -3648,28 +3652,9 @@ const DEFAULT_VIEWS: Record<Role, View> = {
   committee: "event-approvals",
 }
 
-const VIEW_TITLES: Record<string, string> = {
-  feed: "Home Feed",
-  events: "Events Discovery Hub",
-  "qr-pass": "My QR Pass",
-  clubs: "My Clubs",
-  rewards: "YU Rewards",
-  notifications: "Notifications",
-  command: "Command Center",
-  "create-event": "Create Event",
-  scanner: "QR Scanner",
-  members: "Members",
-  approvals: "Approvals",
-  analytics: "Analytics",
-  calendar: "Master Calendar",
-  "event-approvals": "Event Confirmations",
-  evaluation: "Event Evaluation",
-  certifications: "Certifications",
-  framework: "Club Framework",
-}
-
 function AppShell() {
   const { theme, toggleTheme } = useTheme()
+  const { t, isAr } = useLang()
   const { urgentCountFor } = useEventWorkflow()
   const [role, setRole] = useState<Role | null>(null)
   const [view, setView] = useState<View>("feed")
@@ -3729,14 +3714,15 @@ function AppShell() {
           style={{ borderColor: "var(--border)" }}
         >
           <div>
-            <p className="text-[10.5px] font-bold mono uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
-              {ROLE_LABELS[role].toUpperCase()}
+            <p className={`text-[10.5px] font-bold uppercase ${isAr ? "tracking-[0.08em]" : "mono tracking-widest"}`} style={{ color: "var(--text-muted)" }}>
+              {t(`role.${role}`)}
             </p>
             <h1 className="font-display font-bold text-lg leading-tight" style={{ color: "var(--text-primary)" }}>
-              {VIEW_TITLES[view] ?? view}
+              {t(`view.${view}`) || view}
             </h1>
           </div>
           <div className="flex items-center gap-3">
+            <LangToggle />
             <ThemeToggle theme={theme} onToggle={toggleTheme} />
             <button
               onClick={() => setView("notifications")}
@@ -3745,7 +3731,7 @@ function AppShell() {
             >
               <Bell size={16} strokeWidth={2} color="var(--text-secondary)" />
               {urgentCount > 0 && (
-                <div className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full border-2" style={{ background: "var(--danger)", borderColor: "var(--card)" }} />
+                <div className="absolute top-1.5 end-1.5 w-2 h-2 rounded-full border-2" style={{ background: "var(--danger)", borderColor: "var(--card)" }} />
               )}
             </button>
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[var(--card)] border" style={{ borderColor: "var(--border)", boxShadow: "var(--shadow-xs)" }}>
