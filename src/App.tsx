@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, type Dispatch, type SetStateAction } from "react"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type Role = "student" | "president" | "advisor" | "committee"
@@ -29,14 +29,54 @@ type CommitteeView =
 
 type View = StudentView | PresidentView | AdvisorView | CommitteeView
 
+// ─── Date / time helpers ──────────────────────────────────────────────────────
+function formatEventDate(date: Date = new Date()) {
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })
+}
+
+function timeToMinutes(time: string) {
+  const match = time.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i)
+  if (!match) return 0
+  let hours = Number(match[1])
+  const minutes = Number(match[2])
+  const period = match[3].toUpperCase()
+  if (period === "PM" && hours !== 12) hours += 12
+  if (period === "AM" && hours === 12) hours = 0
+  return hours * 60 + minutes
+}
+
+function parseEventStart(dateStr: string, timeStr: string) {
+  const parsed = new Date(`${dateStr} ${timeStr}`)
+  if (!Number.isNaN(parsed.getTime())) return parsed
+
+  // Fallback if locale parsing fails
+  const months: Record<string, number> = {
+    Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+    Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
+  }
+  const parts = dateStr.match(/^([A-Za-z]+)\s+(\d{1,2}),\s+(\d{4})$/)
+  if (!parts) return new Date()
+  const month = months[parts[1]]
+  const day = Number(parts[2])
+  const year = Number(parts[3])
+  const mins = timeToMinutes(timeStr)
+  return new Date(year, month ?? 0, day, Math.floor(mins / 60), mins % 60)
+}
+
+const TODAY_LABEL = formatEventDate()
+
 // ─── Mock data ────────────────────────────────────────────────────────────────
 const EVENTS = [
   {
     id: 1,
     title: "Google Developer Summit",
     club: "Google Developer Student Club",
-    date: "Jul 28, 2026",
-    time: "10:00 AM",
+    date: TODAY_LABEL,
+    time: "1:00 PM",
     location: "Tuwaiq Auditorium",
     category: "Tech",
     capacity: 250,
@@ -49,7 +89,7 @@ const EVENTS = [
     id: 2,
     title: "Sustainability Design Hackathon",
     club: "Environmental Society",
-    date: "Aug 3, 2026",
+    date: TODAY_LABEL,
     time: "9:00 AM",
     location: "Innovation Hub, B2",
     category: "Academic",
@@ -63,8 +103,8 @@ const EVENTS = [
     id: 3,
     title: "YU Cultural Festival 2026",
     club: "Student Affairs",
-    date: "Aug 10, 2026",
-    time: "3:00 PM",
+    date: TODAY_LABEL,
+    time: "5:30 PM",
     location: "Main Campus Grounds",
     category: "Cultural",
     capacity: 1200,
@@ -101,15 +141,36 @@ const EVENTS = [
     image: "https://images.unsplash.com/photo-1546519638-68e109498ffc?w=600&h=300&fit=crop&auto=format",
     color: "#D94040",
   },
+  {
+    id: 6,
+    title: "AI & Machine Learning Workshop",
+    club: "Google Developer Student Club",
+    date: "Aug 12, 2026",
+    time: "2:00 PM",
+    location: "Innovation Lab",
+    category: "Tech",
+    capacity: 100,
+    registered: 72,
+    vision2030: "Innovation",
+    image: "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=600&h=300&fit=crop&auto=format",
+    color: "#3B7DD8",
+  },
 ]
 
+/** Default RSVPs so Home Feed can show today's schedule out of the box. */
+const INITIAL_REGISTERED_EVENT_IDS = [1, 2, 3]
+
 const CLUBS = [
-  { id: 1, name: "Google Developer Student Club", members: 142, meetings: "Every Monday 4PM", category: "Tech", joined: true },
-  { id: 2, name: "YU Debate Society", members: 67, meetings: "Wednesday 5PM", category: "Academic", joined: true },
+  { id: 1, name: "Google Developer Student Club", members: 142, meetings: "Every Monday 4PM", category: "Tech", joined: true, joinedDate: "Sep 2025" },
+  { id: 2, name: "YU Debate Society", members: 67, meetings: "Wednesday 5PM", category: "Academic", joined: true, joinedDate: "Sep 2025" },
   { id: 3, name: "Environmental Society", members: 89, meetings: "Thursday 3PM", category: "Cultural", joined: false },
   { id: 4, name: "YU Entrepreneurship Club", members: 211, meetings: "Tuesday 6PM", category: "Academic", joined: false },
-  { id: 5, name: "Sports Federation", members: 430, meetings: "Daily", category: "Sports", joined: true },
+  { id: 5, name: "Sports Federation", members: 430, meetings: "Daily", category: "Sports", joined: true, joinedDate: "Oct 2025" },
 ]
+
+/** Student fields already shown elsewhere in the app (QR Pass program, club memberships). */
+const STUDENT_MAJOR = "Business Administration"
+const STUDENT_JOINED_CLUB_IDS = CLUBS.filter((c) => c.joined).map((c) => c.id)
 
 const MEMBERS = [
   { id: 1, name: "Reem Al-Qahtani", id_num: "202210045", attendance: 8, status: "active", joined: "Sep 2025" },
@@ -185,6 +246,213 @@ const COMPLETED_EVENTS = [
     evaluated: false,
   },
 ]
+
+type EventItem = (typeof EVENTS)[number]
+type RecommendedEvent = EventItem & { reason: string }
+
+const EVENT_DURATION_MS = 4 * 60 * 60 * 1000
+
+function getFeaturedEvent(events: EventItem[], now = Date.now()) {
+  const timed = events
+    .map((ev) => ({ ev, start: parseEventStart(ev.date, ev.time).getTime() }))
+    .sort((a, b) => a.start - b.start)
+
+  const happening = timed.find((item) => now >= item.start && now < item.start + EVENT_DURATION_MS)
+  if (happening) return happening
+
+  const upcoming = timed.find((item) => item.start > now)
+  return upcoming ?? null
+}
+
+function categoriesForMajor(major: string): string[] {
+  const m = major.toLowerCase()
+  if (
+    m.includes("computer") ||
+    m.includes("cyber") ||
+    m.includes("information") ||
+    m.includes("software")
+  ) {
+    return ["Tech", "Academic"]
+  }
+  if (m.includes("business") || m.includes("entrepreneur") || m.includes("finance")) {
+    return ["Academic"]
+  }
+  if (m.includes("design") || m.includes("art") || m.includes("media")) {
+    return ["Cultural"]
+  }
+  return []
+}
+
+function clubCategoryByName(clubName: string) {
+  return CLUBS.find((c) => c.name === clubName)?.category
+}
+
+function getRecommendedEvents(registeredIds: number[], limit = 3): RecommendedEvent[] {
+  const joinedClubs = CLUBS.filter((c) => STUDENT_JOINED_CLUB_IDS.includes(c.id))
+  const joinedCategories = new Set(joinedClubs.map((c) => c.category))
+  const majorCategories = new Set(categoriesForMajor(STUDENT_MAJOR))
+  const attendedTitles = new Set(COMPLETED_EVENTS.map((e) => e.title))
+  const attendedCategories = new Set(
+    COMPLETED_EVENTS.map((e) => clubCategoryByName(e.club)).filter(Boolean) as string[]
+  )
+  const hasPersonalSignal =
+    joinedCategories.size > 0 || majorCategories.size > 0 || attendedCategories.size > 0
+
+  const candidates = EVENTS.filter(
+    (ev) => !registeredIds.includes(ev.id) && !attendedTitles.has(ev.title)
+  )
+
+  const scored = candidates.map((ev) => {
+    let score = 0
+    let reason = "Popular this week"
+
+    const matchingClub = joinedClubs.find((c) => c.category === ev.category)
+    if (matchingClub) {
+      score += 50
+      reason = `Because you joined ${matchingClub.name}`
+    }
+
+    if (majorCategories.has(ev.category)) {
+      score += 30
+      if (!matchingClub) {
+        reason = `Matches your ${STUDENT_MAJOR} major`
+      }
+    }
+
+    if (attendedCategories.has(ev.category)) {
+      score += 20
+      if (!matchingClub && !majorCategories.has(ev.category)) {
+        reason = "Similar to events you've attended"
+      }
+    }
+
+    const fillRate = ev.capacity > 0 ? ev.registered / ev.capacity : 0
+    score += Math.round(fillRate * 15)
+
+    if (!hasPersonalSignal || (score < 20 && !matchingClub && !majorCategories.has(ev.category) && !attendedCategories.has(ev.category))) {
+      reason = "Popular this week"
+    }
+
+    return { ...ev, score, reason }
+  })
+
+  scored.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score
+    return b.registered / b.capacity - a.registered / a.capacity
+  })
+
+  return scored.slice(0, limit).map(({ score: _score, ...rest }) => rest)
+}
+
+type JourneyEntry = {
+  id: string
+  label: string
+  sortAt: number
+}
+
+type JourneyMonth = {
+  key: string
+  label: string
+  sortAt: number
+  entries: JourneyEntry[]
+}
+
+function parseMonthYearLabel(label: string) {
+  const parsed = new Date(`1 ${label}`)
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed
+}
+
+function monthGroupLabel(date: Date) {
+  return date.toLocaleDateString("en-US", { month: "long", year: "numeric" })
+}
+
+function shortClubLabel(name: string) {
+  if (name.includes("Google Developer")) return "Google Club"
+  if (name.includes("Debate")) return "Debate Society"
+  if (name.includes("Sports")) return "Sports Federation"
+  if (name.includes("Entrepreneurship")) return "Entrepreneurship Club"
+  if (name.includes("Environmental")) return "Environmental Society"
+  return name
+}
+
+/**
+ * Builds the Semester Journey from existing club memberships, completed/
+ * attended events, and evaluated-event certificates.
+ * TODO: Rewards badges have no earned dates — skip until dates exist.
+ */
+function buildSemesterJourney(registeredIds: number[]): JourneyMonth[] {
+  const entries: JourneyEntry[] = []
+
+  for (const club of CLUBS) {
+    if (!STUDENT_JOINED_CLUB_IDS.includes(club.id) || !("joinedDate" in club) || !club.joinedDate) continue
+    const sortAt = parseMonthYearLabel(club.joinedDate).getTime()
+    entries.push({
+      id: `club-${club.id}`,
+      label: `Joined ${shortClubLabel(club.name)}`,
+      sortAt,
+    })
+  }
+
+  for (const ev of COMPLETED_EVENTS) {
+    const sortAt = parseEventStart(ev.date, "12:00 PM").getTime()
+    entries.push({
+      id: `attended-${ev.id}`,
+      label: `Attended ${ev.title}`,
+      sortAt,
+    })
+    if (ev.evaluated) {
+      entries.push({
+        id: `cert-${ev.id}`,
+        label: `Earned Certificate — ${ev.title}`,
+        sortAt: sortAt + 24 * 60 * 60 * 1000,
+      })
+    }
+  }
+
+  for (const ev of EVENTS) {
+    if (!registeredIds.includes(ev.id)) continue
+    const start = parseEventStart(ev.date, ev.time).getTime()
+    if (start > Date.now()) {
+      entries.push({
+        id: `rsvp-${ev.id}`,
+        label: `Registered for ${ev.title}`,
+        sortAt: start,
+      })
+    } else if (!COMPLETED_EVENTS.some((c) => c.title === ev.title)) {
+      entries.push({
+        id: `attended-live-${ev.id}`,
+        label: `Attended ${ev.title}`,
+        sortAt: start,
+      })
+    }
+  }
+
+  entries.sort((a, b) => b.sortAt - a.sortAt)
+
+  const groups = new Map<string, JourneyMonth>()
+  for (const entry of entries) {
+    const date = new Date(entry.sortAt)
+    const key = `${date.getFullYear()}-${date.getMonth()}`
+    const existing = groups.get(key)
+    if (existing) {
+      existing.entries.push(entry)
+    } else {
+      groups.set(key, {
+        key,
+        label: monthGroupLabel(date),
+        sortAt: new Date(date.getFullYear(), date.getMonth(), 1).getTime(),
+        entries: [entry],
+      })
+    }
+  }
+
+  return [...groups.values()]
+    .sort((a, b) => b.sortAt - a.sortAt)
+    .map((month) => ({
+      ...month,
+      entries: [...month.entries].sort((a, b) => b.sortAt - a.sortAt),
+    }))
+}
 
 // ─── Utility components ───────────────────────────────────────────────────────
 function Badge({
@@ -270,6 +538,231 @@ function ProgressBar({ value, max, color = "var(--yu-gold)" }: { value: number; 
   return (
     <div className="w-full h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
       <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
+    </div>
+  )
+}
+
+function EventPreviewCard({
+  event,
+  reason,
+}: {
+  event: EventItem
+  reason?: string
+}) {
+  return (
+    <div className="bg-white rounded-2xl border border-[var(--border)] overflow-hidden">
+      <div className="relative h-32 bg-gray-100">
+        <img
+          src={event.image}
+          alt={event.title}
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute top-2 left-2">
+          <Badge label={event.category} color={event.color} />
+        </div>
+      </div>
+      <div className="p-4">
+        <p
+          className="font-bold text-sm mb-1"
+          style={{ color: "var(--yu-navy)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+        >
+          {event.title}
+        </p>
+        <p className="text-xs text-[var(--text-muted)]">
+          {event.date} · {event.location}
+        </p>
+        {reason && (
+          <p className="text-[11px] font-semibold mt-2" style={{ color: "var(--yu-gold)" }}>
+            {reason}
+          </p>
+        )}
+        <ProgressBar value={event.registered} max={event.capacity} color={event.color} />
+        <p className="text-xs text-[var(--text-muted)] mt-1 mono">
+          {event.registered}/{event.capacity} registered
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function SemesterJourneyCard({ registered }: { registered: number[] }) {
+  const months = buildSemesterJourney(registered)
+
+  return (
+    <div className="bg-white rounded-2xl border border-[var(--border)] p-6">
+      <h3
+        className="font-bold text-base mb-4"
+        style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
+      >
+        Semester Journey
+      </h3>
+
+      {months.length === 0 ? (
+        <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+          Your journey starts here — join a club or attend an event to see it here.
+        </p>
+      ) : (
+        <div className="space-y-6">
+          {months.map((month) => (
+            <div key={month.key}>
+              <p
+                className="font-bold text-sm mb-3"
+                style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
+              >
+                {month.label}
+              </p>
+              <div className="relative pl-6">
+                <div
+                  className="absolute left-[7px] top-2 bottom-2 w-px"
+                  style={{ background: "var(--border)" }}
+                />
+                <div className="space-y-3">
+                  {month.entries.map((entry) => (
+                    <div key={entry.id} className="relative flex items-start gap-3">
+                      <span
+                        className="absolute -left-6 top-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                        style={{
+                          background: "var(--yu-gold-pale)",
+                          color: "var(--yu-gold)",
+                          border: "1px solid var(--yu-gold)",
+                        }}
+                        aria-hidden
+                      >
+                        ✓
+                      </span>
+                      <p className="text-sm text-[var(--text-secondary)] leading-snug">
+                        {entry.label}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FeaturedHeroBanner() {
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    const tick = () => setNow(Date.now())
+    const msToNextMinute = 60_000 - (Date.now() % 60_000)
+    let intervalId: number | undefined
+
+    const timeoutId = window.setTimeout(() => {
+      tick()
+      intervalId = window.setInterval(tick, 60_000)
+    }, msToNextMinute)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+      if (intervalId !== undefined) window.clearInterval(intervalId)
+    }
+  }, [])
+
+  const featured = getFeaturedEvent(EVENTS, now)
+
+  if (!featured) {
+    return (
+      <div
+        className="rounded-2xl overflow-hidden relative"
+        style={{ minHeight: 200, background: "var(--yu-navy)" }}
+      >
+        <img
+          src="https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=1200&h=400&fit=crop&auto=format"
+          alt="YU Campus"
+          className="absolute inset-0 w-full h-full object-cover opacity-30"
+        />
+        <div className="relative z-10 p-8 flex items-end h-full min-h-[200px]">
+          <div>
+            <p className="text-[var(--yu-gold)] text-xs font-semibold mono mb-1">
+              Campus Highlights
+            </p>
+            <h2
+              className="text-2xl font-bold text-white"
+              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+            >
+              No upcoming featured events
+            </h2>
+            <p className="text-white/60 text-sm mt-1">
+              Check the Events Hub for new campus activities.
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const { ev, start } = featured
+  const remaining = start - now
+  const isHappening = remaining <= 0
+
+  let countdown: { value: number; label: string }[] | null = null
+  if (!isHappening) {
+    const totalMinutes = Math.floor(remaining / 60_000)
+    const days = Math.floor(totalMinutes / (60 * 24))
+    const hours = Math.floor((totalMinutes % (60 * 24)) / 60)
+    const minutes = totalMinutes % 60
+    countdown = [
+      ...(days > 0 ? [{ value: days, label: "Days" }] : []),
+      { value: hours, label: "Hours" },
+      { value: minutes, label: "Minutes" },
+    ]
+  }
+
+  return (
+    <div
+      className="rounded-2xl overflow-hidden relative"
+      style={{ minHeight: 220, background: "var(--yu-navy)" }}
+    >
+      <img
+        src={ev.image}
+        alt={ev.title}
+        className="absolute inset-0 w-full h-full object-cover opacity-30"
+      />
+      <div className="relative z-10 p-8 flex items-end min-h-[220px]">
+        <div>
+          <h2
+            className="text-2xl font-bold text-white mb-2"
+            style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+          >
+            {ev.title}
+          </h2>
+          {isHappening ? (
+            <p className="text-[var(--yu-gold)] text-xs font-semibold mono mb-2">
+              Happening Now
+            </p>
+          ) : (
+            <div className="mb-2">
+              <p className="text-[var(--yu-gold)] text-xs font-semibold mono mb-2">
+                Starts in
+              </p>
+              <div className="flex gap-5">
+                {countdown!.map((unit) => (
+                  <div key={unit.label} className="min-w-[3rem]">
+                    <p
+                      className="text-2xl font-bold text-white leading-none"
+                      style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                    >
+                      {unit.value}
+                    </p>
+                    <p className="text-xs mt-1 font-medium" style={{ color: "rgba(201,168,76,0.75)" }}>
+                      {unit.label}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <p className="text-white/60 text-sm mt-1">
+            {ev.date} · {ev.location} · {ev.capacity.toLocaleString()} capacity
+          </p>
+        </div>
+      </div>
     </div>
   )
 }
@@ -698,34 +1191,19 @@ function LoginScreen({ onLogin }: { onLogin: (role: Role) => void }) {
 }
 
 // ─── Student views ─────────────────────────────────────────────────────────────
-function StudentFeed() {
+function StudentFeed({ registered }: { registered: number[] }) {
+  const todaySchedule = EVENTS
+    .filter((ev) => registered.includes(ev.id) && ev.date === TODAY_LABEL)
+    .sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time))
+
+  const recommended = getRecommendedEvents(registered, 3)
+  const upcoming = EVENTS.filter(
+    (ev) => ev.date !== TODAY_LABEL && !registered.includes(ev.id) && !recommended.some((r) => r.id === ev.id)
+  ).slice(0, 2)
+
   return (
     <div className="space-y-6">
-      {/* Banner */}
-      <div
-        className="rounded-2xl overflow-hidden relative"
-        style={{ height: 200, background: "var(--yu-navy)" }}
-      >
-        <img
-          src="https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=1200&h=400&fit=crop&auto=format"
-          alt="YU Campus"
-          className="absolute inset-0 w-full h-full object-cover opacity-30"
-        />
-        <div className="relative z-10 p-8 flex items-end h-full">
-          <div>
-            <p className="text-[var(--yu-gold)] text-xs font-semibold mono mb-1">
-              UPCOMING HIGHLIGHT
-            </p>
-            <h2
-              className="text-2xl font-bold text-white"
-              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-            >
-              YU Cultural Festival 2026
-            </h2>
-            <p className="text-white/60 text-sm mt-1">Aug 10 · Main Campus Grounds · 1,200 capacity</p>
-          </div>
-        </div>
-      </div>
+      <FeaturedHeroBanner />
 
       {/* Quick stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -735,40 +1213,108 @@ function StudentFeed() {
         <StatCard label="Certificates" value={5} sub="Earned" icon="★" accent="#1AA06D" />
       </div>
 
-      {/* Announcements */}
-      <div className="bg-white rounded-2xl border border-[var(--border)] p-6">
+      {/* Today's Schedule + Announcements */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <div className="bg-white rounded-2xl border border-[var(--border)] p-6">
+          <div className="flex items-baseline justify-between mb-4 gap-3">
+            <h3
+              className="font-bold text-base"
+              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
+            >
+              Today's Schedule
+            </h3>
+            <span className="text-xs font-semibold mono" style={{ color: "var(--text-muted)" }}>
+              {TODAY_LABEL}
+            </span>
+          </div>
+          {todaySchedule.length === 0 ? (
+            <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+              No events scheduled for today — check the Events Hub to find something happening this week.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {todaySchedule.map((ev) => (
+                <div
+                  key={ev.id}
+                  className="flex gap-3 items-start p-3 rounded-xl"
+                  style={{ background: "var(--surface)" }}
+                >
+                  <span
+                    className="text-xs font-bold mono shrink-0 pt-0.5 w-[4.5rem]"
+                    style={{ color: "var(--yu-navy)" }}
+                  >
+                    {ev.time}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold" style={{ color: "var(--yu-navy)" }}>
+                      {ev.title}
+                    </p>
+                    <p className="text-xs text-[var(--text-muted)] mt-0.5">{ev.location}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white rounded-2xl border border-[var(--border)] p-6">
+          <h3
+            className="font-bold text-base mb-4"
+            style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
+          >
+            Announcements
+          </h3>
+          <div className="space-y-3">
+            {[
+              { from: "Student Affairs", text: "Registration for Fall 2026 clubs opens August 1st.", time: "2h ago", urgent: true },
+              { from: "Google Dev Club", text: "New workshop slots available for the AI Summit — check Events Hub.", time: "5h ago", urgent: false },
+              { from: "Sports Federation", text: "Tryouts for the basketball team are next Monday at 4PM.", time: "1d ago", urgent: false },
+            ].map((a, i) => (
+              <div key={i} className="flex gap-3 items-start p-3 rounded-xl" style={{ background: "var(--surface)" }}>
+                {a.urgent && (
+                  <div
+                    className="w-1.5 h-1.5 rounded-full mt-2 shrink-0"
+                    style={{ background: "var(--danger)" }}
+                  />
+                )}
+                <div className="min-w-0 flex-1">
+                  <span className="text-xs font-bold" style={{ color: "var(--yu-navy)" }}>
+                    {a.from}
+                  </span>{" "}
+                  <span className="text-sm text-[var(--text-secondary)]">{a.text}</span>
+                </div>
+                <span className="text-xs text-[var(--text-muted)] mono shrink-0">{a.time}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Recommended for You */}
+      <div>
         <h3
           className="font-bold text-base mb-4"
           style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
         >
-          Announcements
+          Recommended for You
         </h3>
-        <div className="space-y-3">
-          {[
-            { from: "Student Affairs", text: "Registration for Fall 2026 clubs opens August 1st.", time: "2h ago", urgent: true },
-            { from: "Google Dev Club", text: "New workshop slots available for the AI Summit — check Events Hub.", time: "5h ago", urgent: false },
-            { from: "Sports Federation", text: "Tryouts for the basketball team are next Monday at 4PM.", time: "1d ago", urgent: false },
-          ].map((a, i) => (
-            <div key={i} className="flex gap-3 items-start p-3 rounded-xl" style={{ background: "var(--surface)" }}>
-              {a.urgent && (
-                <div
-                  className="w-1.5 h-1.5 rounded-full mt-2 shrink-0"
-                  style={{ background: "var(--danger)" }}
-                />
-              )}
-              <div className="min-w-0 flex-1">
-                <span className="text-xs font-bold" style={{ color: "var(--yu-navy)" }}>
-                  {a.from}
-                </span>{" "}
-                <span className="text-sm text-[var(--text-secondary)]">{a.text}</span>
-              </div>
-              <span className="text-xs text-[var(--text-muted)] mono shrink-0">{a.time}</span>
-            </div>
-          ))}
-        </div>
+        {recommended.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-[var(--border)] p-6">
+            <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+              You're all caught up — check the Events Hub when new campus events are posted.
+            </p>
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-3 gap-4">
+            {recommended.map((ev) => (
+              <EventPreviewCard key={ev.id} event={ev} reason={ev.reason} />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Upcoming events preview */}
+      {upcoming.length > 0 && (
       <div>
         <h3
           className="font-bold text-base mb-4"
@@ -777,47 +1323,26 @@ function StudentFeed() {
           Upcoming Events
         </h3>
         <div className="grid md:grid-cols-2 gap-4">
-          {EVENTS.slice(0, 2).map((ev) => (
-            <div
-              key={ev.id}
-              className="bg-white rounded-2xl border border-[var(--border)] overflow-hidden"
-            >
-              <div className="relative h-32 bg-gray-100">
-                <img
-                  src={ev.image}
-                  alt={ev.title}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute top-2 left-2">
-                  <Badge label={ev.category} color={ev.color} />
-                </div>
-              </div>
-              <div className="p-4">
-                <p
-                  className="font-bold text-sm mb-1"
-                  style={{ color: "var(--yu-navy)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-                >
-                  {ev.title}
-                </p>
-                <p className="text-xs text-[var(--text-muted)]">
-                  {ev.date} · {ev.location}
-                </p>
-                <ProgressBar value={ev.registered} max={ev.capacity} color={ev.color} />
-                <p className="text-xs text-[var(--text-muted)] mt-1 mono">
-                  {ev.registered}/{ev.capacity} registered
-                </p>
-              </div>
-            </div>
+          {upcoming.map((ev) => (
+            <EventPreviewCard key={ev.id} event={ev} />
           ))}
         </div>
       </div>
+      )}
+
+      <SemesterJourneyCard registered={registered} />
     </div>
   )
 }
 
-function EventsHub() {
+function EventsHub({
+  registered,
+  setRegistered,
+}: {
+  registered: number[]
+  setRegistered: Dispatch<SetStateAction<number[]>>
+}) {
   const [filter, setFilter] = useState("All")
-  const [registered, setRegistered] = useState<number[]>([])
   const categories = ["All", "Tech", "Academic", "Cultural", "Sports"]
 
   const filtered = filter === "All" ? EVENTS : EVENTS.filter((e) => e.category === filter)
@@ -984,7 +1509,7 @@ function QRPass() {
           <div className="flex justify-between text-xs">
             <div>
               <p className="text-white/40 mono">PROGRAM</p>
-              <p className="text-white font-semibold mt-0.5">Business Administration</p>
+              <p className="text-white font-semibold mt-0.5">{STUDENT_MAJOR}</p>
             </div>
             <div className="text-right">
               <p className="text-white/40 mono">VALID UNTIL</p>
@@ -2368,6 +2893,7 @@ const VIEW_TITLES: Record<string, string> = {
 export default function App() {
   const [role, setRole] = useState<Role | null>(null)
   const [view, setView] = useState<View>("feed")
+  const [registered, setRegistered] = useState<number[]>(INITIAL_REGISTERED_EVENT_IDS)
 
   const handleLogin = (selectedRole: Role) => {
     setRole(selectedRole)
@@ -2385,8 +2911,8 @@ export default function App() {
 
   const renderView = () => {
     // Student
-    if (view === "feed") return <StudentFeed />
-    if (view === "events") return <EventsHub />
+    if (view === "feed") return <StudentFeed registered={registered} />
+    if (view === "events") return <EventsHub registered={registered} setRegistered={setRegistered} />
     if (view === "qr-pass") return <QRPass />
     if (view === "clubs") return <MyClubs />
     if (view === "rewards") return <RewardsView />
