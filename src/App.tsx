@@ -1,4 +1,21 @@
-import { useState, useEffect, type Dispatch, type SetStateAction } from "react"
+import { useState, useEffect, type Dispatch, type SetStateAction, type ReactNode, type CSSProperties, type ButtonHTMLAttributes } from "react"
+import { motion, AnimatePresence } from "framer-motion"
+import type { LucideIcon } from "lucide-react"
+import yuLogoWhite from "./assets/yu-logo-white.png"
+import {
+  GraduationCap, Crown, ShieldCheck, Landmark,
+  LayoutGrid, CalendarDays, QrCode, Users, Sparkles, Bell,
+  LayoutDashboard, SquarePen, ScanLine,
+  ClipboardCheck, BarChart3,
+  CalendarRange, Star, BadgeCheck,
+  LogOut, ArrowRight, MapPin, Clock,
+  CheckCircle2, Check, X,
+  Award, TrendingUp, Rocket,
+  UserPlus, UserCheck,
+  ImagePlus, Camera, Ticket,
+  ChevronLeft, ChevronRight,
+  AlertTriangle, Wallet, Medal,
+} from "lucide-react"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type Role = "student" | "president" | "advisor" | "committee"
@@ -69,6 +86,21 @@ function parseEventStart(dateStr: string, timeStr: string) {
 
 const TODAY_LABEL = formatEventDate()
 
+// ─── Shared color system (mirrors CSS custom properties in index.css) ───────
+const CATEGORY_COLORS: Record<string, string> = {
+  Tech: "#3D7DD8",
+  Academic: "#8A63D6",
+  Cultural: "#D9A404",
+  Sports: "#E14B4B",
+}
+
+const ROLE_ICONS: Record<Role, LucideIcon> = {
+  student: GraduationCap,
+  president: Crown,
+  advisor: ShieldCheck,
+  committee: Landmark,
+}
+
 // ─── Mock data ────────────────────────────────────────────────────────────────
 const EVENTS = [
   {
@@ -83,7 +115,7 @@ const EVENTS = [
     registered: 187,
     vision2030: "Innovation",
     image: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600&h=300&fit=crop&auto=format",
-    color: "#3B7DD8",
+    color: CATEGORY_COLORS.Tech,
   },
   {
     id: 2,
@@ -97,7 +129,7 @@ const EVENTS = [
     registered: 54,
     vision2030: "Sustainability",
     image: "https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=600&h=300&fit=crop&auto=format",
-    color: "#1AA06D",
+    color: CATEGORY_COLORS.Academic,
   },
   {
     id: 3,
@@ -111,7 +143,7 @@ const EVENTS = [
     registered: 876,
     vision2030: "Community Development",
     image: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=600&h=300&fit=crop&auto=format",
-    color: "#C9A84C",
+    color: CATEGORY_COLORS.Cultural,
   },
   {
     id: 4,
@@ -125,7 +157,7 @@ const EVENTS = [
     registered: 41,
     vision2030: "Innovation",
     image: "https://images.unsplash.com/photo-1559136555-9303baea8ebd?w=600&h=300&fit=crop&auto=format",
-    color: "#7C3AED",
+    color: CATEGORY_COLORS.Academic,
   },
   {
     id: 5,
@@ -139,7 +171,7 @@ const EVENTS = [
     registered: 320,
     vision2030: "Community Development",
     image: "https://images.unsplash.com/photo-1546519638-68e109498ffc?w=600&h=300&fit=crop&auto=format",
-    color: "#D94040",
+    color: CATEGORY_COLORS.Sports,
   },
   {
     id: 6,
@@ -153,7 +185,7 @@ const EVENTS = [
     registered: 72,
     vision2030: "Innovation",
     image: "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=600&h=300&fit=crop&auto=format",
-    color: "#3B7DD8",
+    color: CATEGORY_COLORS.Tech,
   },
 ]
 
@@ -454,44 +486,123 @@ function buildSemesterJourney(registeredIds: number[]): JourneyMonth[] {
     }))
 }
 
-// ─── Utility components ───────────────────────────────────────────────────────
-function Badge({
-  label,
-  color = "#3B7DD8",
+// ─── Shared primitives ────────────────────────────────────────────────────────
+function tint(color: string, pct = 14, base = "white") {
+  return `color-mix(in srgb, ${color} ${pct}%, ${base})`
+}
+
+type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "quiet"
+type ButtonSize = "sm" | "md" | "lg"
+
+function Button({
+  variant = "primary",
+  size = "md",
+  icon: Icon,
+  iconPosition = "left",
+  className = "",
+  children,
+  style,
+  ...rest
 }: {
-  label: string
-  color?: string
+  variant?: ButtonVariant
+  size?: ButtonSize
+  icon?: LucideIcon
+  iconPosition?: "left" | "right"
+  className?: string
+  children?: ReactNode
+  style?: CSSProperties
+} & ButtonHTMLAttributes<HTMLButtonElement>) {
+  const sizes: Record<ButtonSize, string> = {
+    sm: "px-3.5 py-1.5 text-xs gap-1.5",
+    md: "px-5 py-2.5 text-[13.5px] gap-2",
+    lg: "px-7 py-3.5 text-[15px] gap-2.5",
+  }
+  const iconSize = size === "lg" ? 17 : size === "sm" ? 13 : 15
+
+  const variants: Record<ButtonVariant, { cls: string; style: CSSProperties }> = {
+    primary: {
+      cls: "text-white hover:brightness-[1.05] hover:-translate-y-px",
+      style: { background: "var(--gradient-brand)", boxShadow: "var(--shadow-brand)" },
+    },
+    secondary: {
+      cls: "bg-white border hover:-translate-y-px",
+      style: { borderColor: "var(--border-strong)", color: "var(--text-primary)", boxShadow: "var(--shadow-xs)" },
+    },
+    ghost: {
+      cls: "hover:bg-[var(--surface-sunken)]",
+      style: { color: "var(--text-secondary)" },
+    },
+    quiet: {
+      cls: "",
+      style: { background: "var(--surface-sunken)", color: "var(--text-primary)" },
+    },
+    danger: {
+      cls: "hover:brightness-95",
+      style: { background: "var(--danger-pale)", color: "var(--danger)" },
+    },
+  }
+  const v = variants[variant]
+
+  return (
+    <button
+      className={`inline-flex items-center justify-center font-semibold rounded-xl transition-all duration-200 active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none disabled:translate-y-0 ${sizes[size]} ${v.cls} ${className}`}
+      style={{ ...v.style, ...style }}
+      {...rest}
+    >
+      {Icon && iconPosition === "left" && <Icon size={iconSize} strokeWidth={2.25} />}
+      {children}
+      {Icon && iconPosition === "right" && <Icon size={iconSize} strokeWidth={2.25} />}
+    </button>
+  )
+}
+
+function Card({
+  children,
+  className = "",
+  padding = "p-6",
+  hover = false,
+  style,
+}: {
+  children: ReactNode
+  className?: string
+  padding?: string
+  hover?: boolean
+  style?: CSSProperties
 }) {
-  const bg = `${color}18`
+  return (
+    <div
+      className={`bg-white rounded-[var(--r-lg)] border ${padding} ${hover ? "lift-hover group" : ""} ${className}`}
+      style={{ borderColor: "var(--border)", boxShadow: "var(--shadow-xs)", ...style }}
+    >
+      {children}
+    </div>
+  )
+}
+
+function Badge({ label, color = "var(--info)", dot = false }: { label: string; color?: string; dot?: boolean }) {
   return (
     <span
-      className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold mono"
-      style={{ background: bg, color }}
+      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10.5px] font-bold mono uppercase tracking-wide"
+      style={{ background: tint(color, 13), color }}
     >
+      {dot && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color }} />}
       {label}
     </span>
   )
 }
 
-function Avatar({
-  name,
-  size = 36,
-  bg = "var(--yu-navy)",
-}: {
-  name: string
-  size?: number
-  bg?: string
-}) {
-  const initials = name
-    .split(" ")
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase()
+function Avatar({ name, size = 36, tone = "ink" }: { name: string; size?: number; tone?: "ink" | "brand" }) {
+  const initials = name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()
   return (
     <div
-      className="flex items-center justify-center rounded-full text-white font-bold shrink-0"
-      style={{ width: size, height: size, background: bg, fontSize: size * 0.36 }}
+      className="font-display flex items-center justify-center rounded-full text-white font-bold shrink-0"
+      style={{
+        width: size,
+        height: size,
+        background: tone === "brand" ? "var(--gradient-brand)" : "var(--gradient-ink)",
+        fontSize: size * 0.36,
+        boxShadow: "var(--shadow-xs)",
+      }}
     >
       {initials}
     </div>
@@ -502,288 +613,101 @@ function StatCard({
   label,
   value,
   sub,
-  icon,
-  accent = "var(--yu-navy)",
+  icon: Icon,
+  accent = "var(--brand)",
+  delay = 0,
 }: {
   label: string
   value: string | number
   sub?: string
-  icon: string
+  icon: LucideIcon
   accent?: string
+  delay?: number
 }) {
-  return (
-    <div className="bg-white rounded-2xl p-5 border border-[var(--border)] flex items-start gap-4">
-      <div
-        className="w-11 h-11 rounded-xl flex items-center justify-center text-xl shrink-0"
-        style={{ background: `${accent}14`, color: accent }}
-      >
-        {icon}
-      </div>
-      <div className="min-w-0">
-        <p className="text-sm text-[var(--text-secondary)] font-medium">{label}</p>
-        <p
-          className="text-2xl font-bold mt-0.5"
-          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-        >
-          {value}
-        </p>
-        {sub && <p className="text-xs text-[var(--text-muted)] mt-0.5">{sub}</p>}
-      </div>
-    </div>
-  )
-}
-
-function ProgressBar({ value, max, color = "var(--yu-gold)" }: { value: number; max: number; color?: string }) {
-  const pct = Math.round((value / max) * 100)
-  return (
-    <div className="w-full h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
-      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
-    </div>
-  )
-}
-
-function EventPreviewCard({
-  event,
-  reason,
-}: {
-  event: EventItem
-  reason?: string
-}) {
-  return (
-    <div className="bg-white rounded-2xl border border-[var(--border)] overflow-hidden">
-      <div className="relative h-32 bg-gray-100">
-        <img
-          src={event.image}
-          alt={event.title}
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute top-2 left-2">
-          <Badge label={event.category} color={event.color} />
-        </div>
-      </div>
-      <div className="p-4">
-        <p
-          className="font-bold text-sm mb-1"
-          style={{ color: "var(--yu-navy)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-        >
-          {event.title}
-        </p>
-        <p className="text-xs text-[var(--text-muted)]">
-          {event.date} · {event.location}
-        </p>
-        {reason && (
-          <p className="text-[11px] font-semibold mt-2" style={{ color: "var(--yu-gold)" }}>
-            {reason}
-          </p>
-        )}
-        <ProgressBar value={event.registered} max={event.capacity} color={event.color} />
-        <p className="text-xs text-[var(--text-muted)] mt-1 mono">
-          {event.registered}/{event.capacity} registered
-        </p>
-      </div>
-    </div>
-  )
-}
-
-function SemesterJourneyCard({ registered }: { registered: number[] }) {
-  const months = buildSemesterJourney(registered)
-
-  return (
-    <div className="bg-white rounded-2xl border border-[var(--border)] p-6">
-      <h3
-        className="font-bold text-base mb-4"
-        style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-      >
-        Semester Journey
-      </h3>
-
-      {months.length === 0 ? (
-        <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-          Your journey starts here — join a club or attend an event to see it here.
-        </p>
-      ) : (
-        <div className="space-y-6">
-          {months.map((month) => (
-            <div key={month.key}>
-              <p
-                className="font-bold text-sm mb-3"
-                style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-              >
-                {month.label}
-              </p>
-              <div className="relative pl-6">
-                <div
-                  className="absolute left-[7px] top-2 bottom-2 w-px"
-                  style={{ background: "var(--border)" }}
-                />
-                <div className="space-y-3">
-                  {month.entries.map((entry) => (
-                    <div key={entry.id} className="relative flex items-start gap-3">
-                      <span
-                        className="absolute -left-6 top-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-                        style={{
-                          background: "var(--yu-gold-pale)",
-                          color: "var(--yu-gold)",
-                          border: "1px solid var(--yu-gold)",
-                        }}
-                        aria-hidden
-                      >
-                        ✓
-                      </span>
-                      <p className="text-sm text-[var(--text-secondary)] leading-snug">
-                        {entry.label}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function FeaturedHeroBanner() {
-  const [now, setNow] = useState(() => Date.now())
-
-  useEffect(() => {
-    const tick = () => setNow(Date.now())
-    const msToNextMinute = 60_000 - (Date.now() % 60_000)
-    let intervalId: number | undefined
-
-    const timeoutId = window.setTimeout(() => {
-      tick()
-      intervalId = window.setInterval(tick, 60_000)
-    }, msToNextMinute)
-
-    return () => {
-      window.clearTimeout(timeoutId)
-      if (intervalId !== undefined) window.clearInterval(intervalId)
-    }
-  }, [])
-
-  const featured = getFeaturedEvent(EVENTS, now)
-
-  if (!featured) {
-    return (
-      <div
-        className="rounded-2xl overflow-hidden relative"
-        style={{ minHeight: 200, background: "var(--yu-navy)" }}
-      >
-        <img
-          src="https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=1200&h=400&fit=crop&auto=format"
-          alt="YU Campus"
-          className="absolute inset-0 w-full h-full object-cover opacity-30"
-        />
-        <div className="relative z-10 p-8 flex items-end h-full min-h-[200px]">
-          <div>
-            <p className="text-[var(--yu-gold)] text-xs font-semibold mono mb-1">
-              Campus Highlights
-            </p>
-            <h2
-              className="text-2xl font-bold text-white"
-              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-            >
-              No upcoming featured events
-            </h2>
-            <p className="text-white/60 text-sm mt-1">
-              Check the Events Hub for new campus activities.
-            </p>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  const { ev, start } = featured
-  const remaining = start - now
-  const isHappening = remaining <= 0
-
-  let countdown: { value: number; label: string }[] | null = null
-  if (!isHappening) {
-    const totalMinutes = Math.floor(remaining / 60_000)
-    const days = Math.floor(totalMinutes / (60 * 24))
-    const hours = Math.floor((totalMinutes % (60 * 24)) / 60)
-    const minutes = totalMinutes % 60
-    countdown = [
-      ...(days > 0 ? [{ value: days, label: "Days" }] : []),
-      { value: hours, label: "Hours" },
-      { value: minutes, label: "Minutes" },
-    ]
-  }
-
   return (
     <div
-      className="rounded-2xl overflow-hidden relative"
-      style={{ minHeight: 220, background: "var(--yu-navy)" }}
+      className="bg-white rounded-[var(--r-lg)] p-5 border flex items-start gap-4 lift-hover animate-fade-up"
+      style={{ borderColor: "var(--border)", boxShadow: "var(--shadow-xs)", animationDelay: `${delay}ms` }}
     >
-      <img
-        src={ev.image}
-        alt={ev.title}
-        className="absolute inset-0 w-full h-full object-cover opacity-30"
-      />
-      <div className="relative z-10 p-8 flex items-end min-h-[220px]">
-        <div>
-          <h2
-            className="text-2xl font-bold text-white mb-2"
-            style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-          >
-            {ev.title}
-          </h2>
-          {isHappening ? (
-            <p className="text-[var(--yu-gold)] text-xs font-semibold mono mb-2">
-              Happening Now
-            </p>
-          ) : (
-            <div className="mb-2">
-              <p className="text-[var(--yu-gold)] text-xs font-semibold mono mb-2">
-                Starts in
-              </p>
-              <div className="flex gap-5">
-                {countdown!.map((unit) => (
-                  <div key={unit.label} className="min-w-[3rem]">
-                    <p
-                      className="text-2xl font-bold text-white leading-none"
-                      style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-                    >
-                      {unit.value}
-                    </p>
-                    <p className="text-xs mt-1 font-medium" style={{ color: "rgba(201,168,76,0.75)" }}>
-                      {unit.label}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          <p className="text-white/60 text-sm mt-1">
-            {ev.date} · {ev.location} · {ev.capacity.toLocaleString()} capacity
-          </p>
-        </div>
+      <div
+        className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
+        style={{ background: tint(accent, 12), color: accent }}
+      >
+        <Icon size={19} strokeWidth={2} />
+      </div>
+      <div className="min-w-0">
+        <p className="text-[13px] font-medium" style={{ color: "var(--text-secondary)" }}>{label}</p>
+        <p className="font-display text-[25px] font-bold mt-0.5 leading-tight" style={{ color: "var(--text-primary)" }}>
+          {value}
+        </p>
+        {sub && <p className="text-[11.5px] mt-0.5" style={{ color: "var(--text-muted)" }}>{sub}</p>}
       </div>
     </div>
   )
 }
 
-function StarRating({
-  value,
-  onChange,
+function ProgressBar({ value, max, color = "var(--brand)" }: { value: number; max: number; color?: string }) {
+  const pct = Math.min(100, Math.round((value / max) * 100))
+  return (
+    <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: "var(--surface-sunken)" }}>
+      <div className="h-full rounded-full transition-all duration-700 ease-out" style={{ width: `${pct}%`, background: color }} />
+    </div>
+  )
+}
+
+function EmptyState({ icon: Icon, title, body }: { icon: LucideIcon; title: string; body: string }) {
+  return (
+    <div className="rounded-[var(--r-lg)] border border-dashed p-12 text-center" style={{ borderColor: "var(--border-strong)" }}>
+      <div
+        className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4"
+        style={{ background: "var(--surface-sunken)", color: "var(--text-muted)" }}
+      >
+        <Icon size={21} strokeWidth={1.75} />
+      </div>
+      <p className="font-bold text-[14px] font-display" style={{ color: "var(--text-primary)" }}>{title}</p>
+      <p className="text-sm mt-1.5 max-w-sm mx-auto leading-relaxed" style={{ color: "var(--text-secondary)" }}>{body}</p>
+    </div>
+  )
+}
+
+function SectionHeader({
+  eyebrow,
+  title,
+  subtitle,
+  action,
 }: {
-  value: number
-  onChange: (v: number) => void
+  eyebrow?: string
+  title: string
+  subtitle?: string
+  action?: ReactNode
 }) {
+  return (
+    <div className="flex items-end justify-between gap-4 flex-wrap">
+      <div>
+        {eyebrow && (
+          <p className="text-[10.5px] font-bold mono uppercase tracking-widest mb-1.5" style={{ color: "var(--brand)" }}>
+            {eyebrow}
+          </p>
+        )}
+        <h2 className="font-display text-[22px] font-bold" style={{ color: "var(--text-primary)" }}>{title}</h2>
+        {subtitle && <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>{subtitle}</p>}
+      </div>
+      {action}
+    </div>
+  )
+}
+
+function StarRating({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   return (
     <div className="flex gap-1">
       {[1, 2, 3, 4, 5].map((s) => (
         <button
           key={s}
           onClick={() => onChange(s)}
-          className="text-2xl transition-transform hover:scale-110"
-          style={{ color: s <= value ? "var(--yu-gold)" : "var(--border)" }}
+          className="transition-transform duration-150 hover:scale-125"
+          style={{ color: s <= value ? "var(--brand)" : "var(--border-strong)" }}
         >
-          ★
+          <Star size={19} strokeWidth={0} fill="currentColor" />
         </button>
       ))}
     </div>
@@ -819,11 +743,12 @@ function QRCode({ size = 160 }: { size?: number }) {
           val ? (
             <rect
               key={`${r}-${c}`}
-              x={c * cell}
-              y={r * cell}
-              width={cell}
-              height={cell}
-              fill="var(--yu-navy)"
+              x={c * cell + cell * 0.08}
+              y={r * cell + cell * 0.08}
+              width={cell * 0.84}
+              height={cell * 0.84}
+              rx={cell * 0.18}
+              fill="var(--ink)"
             />
           ) : null
         )
@@ -833,33 +758,33 @@ function QRCode({ size = 160 }: { size?: number }) {
 }
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
-const NAV_ITEMS: Record<Role, { icon: string; label: string; view: View }[]> = {
+const NAV_ITEMS: Record<Role, { icon: LucideIcon; label: string; view: View }[]> = {
   student: [
-    { icon: "⊞", label: "Home Feed", view: "feed" },
-    { icon: "◈", label: "Events Hub", view: "events" },
-    { icon: "▣", label: "My QR Pass", view: "qr-pass" },
-    { icon: "◎", label: "My Clubs", view: "clubs" },
-    { icon: "⬡", label: "Rewards", view: "rewards" },
-    { icon: "◉", label: "Notifications", view: "notifications" },
+    { icon: LayoutGrid, label: "Home Feed", view: "feed" },
+    { icon: CalendarDays, label: "Events Hub", view: "events" },
+    { icon: QrCode, label: "My QR Pass", view: "qr-pass" },
+    { icon: Users, label: "My Clubs", view: "clubs" },
+    { icon: Sparkles, label: "Rewards", view: "rewards" },
+    { icon: Bell, label: "Notifications", view: "notifications" },
   ],
   president: [
-    { icon: "⊞", label: "Command Center", view: "command" },
-    { icon: "✦", label: "Create Event", view: "create-event" },
-    { icon: "◈", label: "QR Scanner", view: "scanner" },
-    { icon: "◎", label: "Members", view: "members" },
-    { icon: "◉", label: "Notifications", view: "notifications" },
+    { icon: LayoutDashboard, label: "Command Center", view: "command" },
+    { icon: SquarePen, label: "Create Event", view: "create-event" },
+    { icon: ScanLine, label: "QR Scanner", view: "scanner" },
+    { icon: Users, label: "Members", view: "members" },
+    { icon: Bell, label: "Notifications", view: "notifications" },
   ],
   advisor: [
-    { icon: "◈", label: "Approvals", view: "approvals" },
-    { icon: "⊞", label: "Analytics", view: "analytics" },
-    { icon: "◉", label: "Notifications", view: "notifications" },
+    { icon: ClipboardCheck, label: "Approvals", view: "approvals" },
+    { icon: BarChart3, label: "Analytics", view: "analytics" },
+    { icon: Bell, label: "Notifications", view: "notifications" },
   ],
   committee: [
-    { icon: "◈", label: "Master Calendar", view: "calendar" },
-    { icon: "★", label: "Event Evaluation", view: "evaluation" },
-    { icon: "◎", label: "Certifications", view: "certifications" },
-    { icon: "⊞", label: "Analytics", view: "analytics" },
-    { icon: "◉", label: "Notifications", view: "notifications" },
+    { icon: CalendarRange, label: "Master Calendar", view: "calendar" },
+    { icon: Star, label: "Event Evaluation", view: "evaluation" },
+    { icon: BadgeCheck, label: "Certifications", view: "certifications" },
+    { icon: BarChart3, label: "Analytics", view: "analytics" },
+    { icon: Bell, label: "Notifications", view: "notifications" },
   ],
 }
 
@@ -868,13 +793,6 @@ const ROLE_LABELS: Record<Role, string> = {
   president: "Club President",
   advisor: "Club Advisor",
   committee: "Student Affairs",
-}
-
-const ROLE_COLORS: Record<Role, string> = {
-  student: "#3B7DD8",
-  president: "#7C3AED",
-  advisor: "#1AA06D",
-  committee: "#C9A84C",
 }
 
 function Sidebar({
@@ -891,85 +809,73 @@ function Sidebar({
   userName: string
 }) {
   const items = NAV_ITEMS[role]
-  const roleColor = ROLE_COLORS[role]
+  const RoleIcon = ROLE_ICONS[role]
 
   return (
     <aside
-      className="flex flex-col h-full"
-      style={{
-        background: "var(--yu-navy-dark)",
-        width: 240,
-        minWidth: 240,
-      }}
+      className="noise flex flex-col h-full relative"
+      style={{ background: "var(--obsidian)", width: 272, minWidth: 272, borderRight: "1px solid rgba(255,255,255,0.06)" }}
     >
       {/* Logo */}
-      <div className="px-6 pt-8 pb-6">
-        <div className="flex items-center gap-3 mb-1">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-extrabold text-base shrink-0"
-            style={{ background: "var(--yu-gold)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-          >
-            YU
-          </div>
-          <div>
-            <p className="text-white font-bold text-sm leading-tight" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-              Al Yamamah
-            </p>
-            <p className="text-[var(--yu-gold)] text-xs font-medium mono">Student Hub</p>
-          </div>
-        </div>
+      <div className="px-6 pt-8 pb-7 relative z-10">
+        <img src={yuLogoWhite} alt="Al Yamamah University" className="h-12 w-auto mb-2.5" />
+        <p className="text-[10.5px] font-bold mono uppercase tracking-widest" style={{ color: "var(--brand)" }}>Student Hub</p>
       </div>
 
       {/* Role badge */}
-      <div className="px-4 mb-6">
+      <div className="px-5 mb-6 relative z-10">
         <div
-          className="rounded-xl px-3 py-2 flex items-center gap-2.5"
-          style={{ background: `${roleColor}22` }}
+          className="rounded-xl px-3.5 py-2.5 flex items-center gap-2.5 border"
+          style={{ background: "rgba(255,255,255,0.035)", borderColor: "rgba(255,255,255,0.08)" }}
         >
-          <div className="w-2 h-2 rounded-full shrink-0" style={{ background: roleColor }} />
-          <span className="text-xs font-semibold" style={{ color: roleColor }}>
-            {ROLE_LABELS[role]}
-          </span>
+          <RoleIcon size={15} strokeWidth={2} color="var(--brand)" />
+          <span className="text-[12.5px] font-semibold" style={{ color: "rgba(255,255,255,0.82)" }}>{ROLE_LABELS[role]}</span>
+          <span className="ml-auto w-1.5 h-1.5 rounded-full animate-pulse-dot" style={{ background: "var(--brand)" }} />
         </div>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 space-y-0.5">
+      <nav className="flex-1 px-4 space-y-1 relative z-10">
         {items.map((item) => {
           const active = currentView === item.view
+          const Icon = item.icon
           return (
             <button
               key={item.view}
               onClick={() => onNavigate(item.view)}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left"
-              style={{
-                background: active ? `${roleColor}28` : "transparent",
-                color: active ? "white" : "rgba(255,255,255,0.52)",
-              }}
+              className="relative w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[13.5px] font-medium text-left transition-colors duration-200"
+              style={{ color: active ? "white" : "rgba(255,255,255,0.46)" }}
             >
-              <span className="text-base w-5 text-center" style={{ color: active ? roleColor : undefined }}>
-                {item.icon}
-              </span>
-              {item.label}
+              {active && (
+                <motion.div
+                  layoutId="sidebar-active-pill"
+                  className="absolute inset-0 rounded-xl"
+                  style={{ background: "rgba(246,137,55,0.14)", border: "1px solid rgba(246,137,55,0.3)" }}
+                  transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                />
+              )}
+              <Icon size={17} strokeWidth={2} className="relative z-10 shrink-0" color={active ? "var(--brand)" : undefined} />
+              <span className="relative z-10">{item.label}</span>
             </button>
           )
         })}
       </nav>
 
       {/* User */}
-      <div className="px-4 py-5 border-t border-white/10">
+      <div className="px-5 py-5 relative z-10" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
         <div className="flex items-center gap-3">
-          <Avatar name={userName} size={34} bg="var(--yu-gold)" />
+          <Avatar name={userName} size={36} tone="brand" />
           <div className="min-w-0 flex-1">
-            <p className="text-white text-sm font-semibold truncate">{userName}</p>
-            <p className="text-white/40 text-xs mono truncate">YU · {new Date().getFullYear()}</p>
+            <p className="text-white text-[13.5px] font-semibold truncate">{userName}</p>
+            <p className="text-[11px] mono truncate" style={{ color: "rgba(255,255,255,0.32)" }}>YU · {new Date().getFullYear()}</p>
           </div>
           <button
             onClick={onLogout}
-            className="text-white/30 hover:text-white/70 text-lg transition-all"
+            className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 hover:bg-white/5"
+            style={{ color: "rgba(255,255,255,0.3)" }}
             title="Sign out"
           >
-            ⏻
+            <LogOut size={15} strokeWidth={2} />
           </button>
         </div>
       </div>
@@ -978,17 +884,31 @@ function Sidebar({
 }
 
 // ─── Login / Role selector ────────────────────────────────────────────────────
+function FieldShell({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div
+      className="rounded-xl px-4 py-3 border transition-all duration-200 focus-within:border-[var(--brand)]"
+      style={{ background: "rgba(255,255,255,0.035)", borderColor: "rgba(255,255,255,0.09)" }}
+    >
+      <label className="block text-[9.5px] font-bold mono uppercase tracking-widest mb-1" style={{ color: "rgba(255,255,255,0.35)" }}>
+        {label}
+      </label>
+      {children}
+    </div>
+  )
+}
+
 function LoginScreen({ onLogin }: { onLogin: (role: Role) => void }) {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [role, setRole] = useState<Role>("student")
   const [step, setStep] = useState<"login" | "onboarding">("login")
 
-  const roles: { value: Role; label: string; icon: string; desc: string }[] = [
-    { value: "student", label: "Student", icon: "👩‍🎓", desc: "Access events, clubs & your campus life" },
-    { value: "president", label: "Club President", icon: "👑", desc: "Manage your club, events & members" },
-    { value: "advisor", label: "Club Advisor", icon: "🛡️", desc: "Oversee clubs and approve proposals" },
-    { value: "committee", label: "Student Affairs", icon: "🏛️", desc: "University-wide oversight & analytics" },
+  const roles: { value: Role; label: string; icon: LucideIcon }[] = [
+    { value: "student", label: "Student", icon: GraduationCap },
+    { value: "president", label: "Club President", icon: Crown },
+    { value: "advisor", label: "Club Advisor", icon: ShieldCheck },
+    { value: "committee", label: "Student Affairs", icon: Landmark },
   ]
 
   const onboardingText: Record<Role, string[]> = {
@@ -1015,40 +935,35 @@ function LoginScreen({ onLogin }: { onLogin: (role: Role) => void }) {
   }
 
   if (step === "onboarding") {
+    const R = roles.find((r) => r.value === role)!
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--yu-navy-dark)" }}>
-        <div className="w-full max-w-md mx-auto px-6">
-          <div
-            className="rounded-3xl p-8"
-            style={{ background: "var(--yu-navy)" }}
-          >
+      <div className="noise min-h-screen flex items-center justify-center relative overflow-hidden" style={{ background: "var(--gradient-hero)" }}>
+        <div className="animate-float absolute w-[480px] h-[480px] rounded-full pointer-events-none" style={{ background: "var(--brand)", opacity: 0.16, filter: "blur(120px)", top: "-12%", left: "-8%" }} />
+        <div className="w-full max-w-md mx-auto px-6 relative z-10 animate-scale-in">
+          <div className="rounded-[var(--r-2xl)] p-9 border" style={{ background: "rgba(255,255,255,0.045)", borderColor: "rgba(255,255,255,0.09)", backdropFilter: "blur(20px)" }}>
             <div className="text-center mb-8">
-              <div className="text-4xl mb-3">{roles.find((r) => r.value === role)?.icon}</div>
-              <h2 className="text-2xl font-bold text-white">
-                Welcome, {ROLE_LABELS[role]}
-              </h2>
-              <p className="text-white/50 text-sm mt-1">Here's what you can do</p>
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: "var(--gradient-brand)", boxShadow: "var(--shadow-brand)" }}>
+                <R.icon size={24} strokeWidth={2} color="white" />
+              </div>
+              <h2 className="font-display text-2xl font-bold text-white">Welcome, {ROLE_LABELS[role]}</h2>
+              <p className="text-sm mt-1.5" style={{ color: "rgba(255,255,255,0.45)" }}>Here's what you can do</p>
             </div>
             <div className="space-y-4 mb-8">
               {onboardingText[role].map((tip, i) => (
-                <div key={i} className="flex gap-3 items-start">
+                <div key={i} className="flex gap-3.5 items-start animate-fade-up" style={{ animationDelay: `${i * 90}ms` }}>
                   <div
-                    className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5"
-                    style={{ background: "var(--yu-gold)", color: "var(--yu-navy-dark)" }}
+                    className="font-display w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 mt-0.5"
+                    style={{ background: "var(--brand)", color: "var(--obsidian)" }}
                   >
                     {i + 1}
                   </div>
-                  <p className="text-white/80 text-sm leading-relaxed">{tip}</p>
+                  <p className="text-[13.5px] leading-relaxed" style={{ color: "rgba(255,255,255,0.75)" }}>{tip}</p>
                 </div>
               ))}
             </div>
-            <button
-              onClick={() => onLogin(role)}
-              className="w-full py-3 rounded-xl font-bold text-sm transition-all hover:opacity-90"
-              style={{ background: "var(--yu-gold)", color: "var(--yu-navy-dark)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-            >
-              Enter Your Hub →
-            </button>
+            <Button variant="primary" size="lg" icon={ArrowRight} iconPosition="right" onClick={() => onLogin(role)} className="w-full">
+              Enter Your Hub
+            </Button>
           </div>
         </div>
       </div>
@@ -1056,134 +971,105 @@ function LoginScreen({ onLogin }: { onLogin: (role: Role) => void }) {
   }
 
   return (
-    <div className="min-h-screen flex" style={{ background: "var(--yu-navy-dark)" }}>
-      {/* Left panel */}
-      <div className="hidden lg:flex flex-col justify-between w-2/5 p-12" style={{ background: "var(--yu-navy)" }}>
+    <div className="noise min-h-screen flex relative overflow-hidden" style={{ background: "var(--gradient-hero)" }}>
+      <div className="animate-float absolute w-[560px] h-[560px] rounded-full pointer-events-none" style={{ background: "var(--brand)", opacity: 0.14, filter: "blur(140px)", top: "-14%", left: "4%" }} />
+      <div className="absolute w-[420px] h-[420px] rounded-full pointer-events-none" style={{ background: "#8A63D6", opacity: 0.08, filter: "blur(140px)", bottom: "-10%", right: "6%" }} />
+
+      {/* Left: brand story */}
+      <div className="hidden lg:flex flex-col justify-between w-1/2 p-14 relative z-10">
         <div>
-          <div className="flex items-center gap-3 mb-16">
-            <div
-              className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-extrabold text-lg"
-              style={{ background: "var(--yu-gold)" }}
-            >
-              YU
-            </div>
-            <div>
-              <p className="text-white font-bold text-lg leading-tight" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                Al Yamamah University
-              </p>
-              <p className="text-[var(--yu-gold)] text-sm mono">Student Hub</p>
-            </div>
+          <div className="mb-20 animate-fade-up">
+            <img src={yuLogoWhite} alt="Al Yamamah University" className="h-20 w-auto mb-3" />
+            <p className="text-[10.5px] font-bold mono uppercase tracking-widest" style={{ color: "var(--brand)" }}>Student Hub</p>
           </div>
-          <h1
-            className="text-4xl font-extrabold text-white leading-snug mb-4"
-            style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-          >
-            Your Campus,
+          <h1 className="font-display text-[52px] font-extrabold text-white leading-[1.05] mb-5 animate-fade-up" style={{ animationDelay: "70ms" }}>
+            Your campus,
             <br />
-            <span style={{ color: "var(--yu-gold)" }}>Connected.</span>
+            <span style={{ background: "var(--gradient-brand)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>
+              elevated.
+            </span>
           </h1>
-          <p className="text-white/50 text-base leading-relaxed">
-            One platform for events, clubs, attendance, and your entire campus life journey at YU.
+          <p className="text-[16px] leading-relaxed max-w-sm animate-fade-up" style={{ color: "rgba(255,255,255,0.45)", animationDelay: "140ms" }}>
+            One hub for events, clubs, attendance, and every moment of your journey at YU.
           </p>
         </div>
-        <div className="space-y-3">
+        <div className="flex gap-3 flex-wrap animate-fade-up" style={{ animationDelay: "210ms" }}>
           {[
-            { icon: "◈", label: "1,400+ Events hosted this year" },
-            { icon: "◎", label: "42 Active student clubs" },
-            { icon: "⬡", label: "Vision 2030 aligned programs" },
+            { icon: CalendarDays, label: "1,400+ events" },
+            { icon: Users, label: "42 active clubs" },
+            { icon: Sparkles, label: "Vision 2030 aligned" },
           ].map((item) => (
-            <div key={item.label} className="flex items-center gap-3 text-white/60 text-sm">
-              <span style={{ color: "var(--yu-gold)" }}>{item.icon}</span>
+            <div
+              key={item.label}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-full text-[12.5px] border"
+              style={{ background: "rgba(255,255,255,0.04)", borderColor: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.6)" }}
+            >
+              <item.icon size={13} strokeWidth={2} color="var(--brand)" />
               {item.label}
             </div>
           ))}
         </div>
       </div>
 
-      {/* Right panel */}
-      <div className="flex-1 flex items-center justify-center p-8">
-        <div className="w-full max-w-sm">
-          <h2
-            className="text-2xl font-bold text-white mb-1"
-            style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-          >
-            Sign In
-          </h2>
-          <p className="text-white/40 text-sm mb-8">Use your YU university credentials</p>
+      {/* Right: sign-in card */}
+      <div className="flex-1 flex items-center justify-center p-8 relative z-10">
+        <div
+          className="w-full max-w-[380px] rounded-[var(--r-2xl)] p-8 border animate-scale-in"
+          style={{ background: "rgba(255,255,255,0.045)", borderColor: "rgba(255,255,255,0.09)", backdropFilter: "blur(24px)", boxShadow: "var(--shadow-lg)" }}
+        >
+          <h2 className="font-display text-[22px] font-bold text-white mb-1">Sign in</h2>
+          <p className="text-[13px] mb-7" style={{ color: "rgba(255,255,255,0.4)" }}>Use your YU university credentials</p>
 
-          <div className="space-y-4 mb-6">
-            <div>
-              <label className="text-white/60 text-xs font-medium mono block mb-1.5">
-                UNIVERSITY EMAIL
-              </label>
+          <div className="space-y-3.5 mb-6">
+            <FieldShell label="University email">
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="s2022XXXXX@yu.edu.sa"
-                className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
-                style={{
-                  background: "rgba(255,255,255,0.07)",
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  color: "white",
-                }}
+                className="w-full bg-transparent text-white text-sm outline-none placeholder:text-white/25"
               />
-            </div>
-            <div>
-              <label className="text-white/60 text-xs font-medium mono block mb-1.5">
-                PASSWORD
-              </label>
+            </FieldShell>
+            <FieldShell label="Password">
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-4 py-3 rounded-xl text-sm outline-none"
-                style={{
-                  background: "rgba(255,255,255,0.07)",
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  color: "white",
-                }}
+                className="w-full bg-transparent text-white text-sm outline-none placeholder:text-white/25"
               />
-            </div>
+            </FieldShell>
+
             <div>
-              <label className="text-white/60 text-xs font-medium mono block mb-1.5">
-                ROLE
-              </label>
+              <p className="text-[9.5px] font-bold mono uppercase tracking-widest mb-2" style={{ color: "rgba(255,255,255,0.35)" }}>Role</p>
               <div className="grid grid-cols-2 gap-2">
-                {roles.map((r) => (
-                  <button
-                    key={r.value}
-                    onClick={() => setRole(r.value)}
-                    className="flex flex-col items-start px-3 py-3 rounded-xl text-left transition-all"
-                    style={{
-                      background: role === r.value ? `${ROLE_COLORS[r.value]}22` : "rgba(255,255,255,0.05)",
-                      border: `1px solid ${role === r.value ? ROLE_COLORS[r.value] : "rgba(255,255,255,0.08)"}`,
-                    }}
-                  >
-                    <span className="text-lg mb-1">{r.icon}</span>
-                    <span
-                      className="text-xs font-semibold"
-                      style={{ color: role === r.value ? ROLE_COLORS[r.value] : "rgba(255,255,255,0.6)" }}
+                {roles.map((r) => {
+                  const selected = role === r.value
+                  return (
+                    <button
+                      key={r.value}
+                      onClick={() => setRole(r.value)}
+                      className="flex flex-col items-start px-3.5 py-3 rounded-xl text-left transition-all duration-200 border"
+                      style={{
+                        background: selected ? "rgba(246,137,55,0.12)" : "rgba(255,255,255,0.03)",
+                        borderColor: selected ? "var(--brand)" : "rgba(255,255,255,0.08)",
+                      }}
                     >
-                      {r.label}
-                    </span>
-                  </button>
-                ))}
+                      <r.icon size={16} strokeWidth={2} color={selected ? "var(--brand)" : "rgba(255,255,255,0.4)"} className="mb-1.5" />
+                      <span className="text-[12.5px] font-semibold" style={{ color: selected ? "white" : "rgba(255,255,255,0.55)" }}>
+                        {r.label}
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
             </div>
           </div>
 
-          <button
-            onClick={() => setStep("onboarding")}
-            className="w-full py-3 rounded-xl font-bold text-sm transition-all hover:opacity-90 mb-4"
-            style={{ background: "var(--yu-gold)", color: "var(--yu-navy-dark)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-          >
+          <Button variant="primary" size="lg" icon={ArrowRight} iconPosition="right" onClick={() => setStep("onboarding")} className="w-full mb-4">
             Continue
-          </button>
-          <p className="text-center text-white/30 text-xs">
-            Authorized users only · Al Yamamah University
-          </p>
+          </Button>
+          <p className="text-center text-[11.5px]" style={{ color: "rgba(255,255,255,0.25)" }}>Authorized users only · Al Yamamah University</p>
         </div>
       </div>
     </div>
@@ -1191,6 +1077,156 @@ function LoginScreen({ onLogin }: { onLogin: (role: Role) => void }) {
 }
 
 // ─── Student views ─────────────────────────────────────────────────────────────
+function EventPreviewCard({ event, reason }: { event: EventItem; reason?: string }) {
+  return (
+    <Card hover padding="p-0" className="overflow-hidden">
+      <div className="relative h-36 overflow-hidden">
+        <img src={event.image} alt={event.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+        <div className="absolute top-3 left-3"><Badge label={event.category} color={event.color} /></div>
+      </div>
+      <div className="p-4">
+        <p className="font-display font-bold text-[13.5px] mb-1" style={{ color: "var(--text-primary)" }}>{event.title}</p>
+        <p className="text-xs flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>
+          <MapPin size={11} strokeWidth={2} /> {event.date} · {event.location}
+        </p>
+        {reason && (
+          <p className="text-[11px] font-semibold mt-2 flex items-center gap-1" style={{ color: "var(--brand)" }}>
+            <Sparkles size={11} strokeWidth={2} /> {reason}
+          </p>
+        )}
+        <div className="mt-3">
+          <ProgressBar value={event.registered} max={event.capacity} color={event.color} />
+          <p className="text-[11px] mt-1.5 mono" style={{ color: "var(--text-muted)" }}>{event.registered}/{event.capacity} registered</p>
+        </div>
+      </div>
+    </Card>
+  )
+}
+
+function SemesterJourneyCard({ registered }: { registered: number[] }) {
+  const months = buildSemesterJourney(registered)
+
+  return (
+    <Card>
+      <SectionHeader eyebrow="Your story" title="Semester Journey" />
+      <div className="mt-5">
+        {months.length === 0 ? (
+          <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+            Your journey starts here — join a club or attend an event to see it here.
+          </p>
+        ) : (
+          <div className="space-y-7">
+            {months.map((month) => (
+              <div key={month.key}>
+                <p className="font-display font-bold text-[13px] mb-3.5" style={{ color: "var(--text-primary)" }}>{month.label}</p>
+                <div className="relative pl-7">
+                  <div className="absolute left-[9px] top-1.5 bottom-1.5 w-px" style={{ background: "var(--border)" }} />
+                  <div className="space-y-3.5">
+                    {month.entries.map((entry) => (
+                      <div key={entry.id} className="relative flex items-start gap-3">
+                        <span
+                          className="absolute -left-7 top-0 w-[19px] h-[19px] rounded-full flex items-center justify-center shrink-0"
+                          style={{ background: "var(--brand-100)", border: "1.5px solid var(--brand)" }}
+                          aria-hidden
+                        >
+                          <Check size={10} strokeWidth={3} color="var(--brand-700)" />
+                        </span>
+                        <p className="text-sm leading-snug pt-0.5" style={{ color: "var(--text-secondary)" }}>{entry.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </Card>
+  )
+}
+
+function FeaturedHeroBanner() {
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    const tick = () => setNow(Date.now())
+    const msToNextMinute = 60_000 - (Date.now() % 60_000)
+    let intervalId: number | undefined
+
+    const timeoutId = window.setTimeout(() => {
+      tick()
+      intervalId = window.setInterval(tick, 60_000)
+    }, msToNextMinute)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+      if (intervalId !== undefined) window.clearInterval(intervalId)
+    }
+  }, [])
+
+  const featured = getFeaturedEvent(EVENTS, now)
+
+  if (!featured) {
+    return (
+      <div className="noise rounded-[var(--r-xl)] overflow-hidden relative" style={{ minHeight: 220, background: "var(--gradient-ink)" }}>
+        <div className="relative z-10 p-9 flex items-end h-full min-h-[220px]">
+          <div>
+            <p className="text-[10.5px] font-bold mono uppercase tracking-widest mb-2" style={{ color: "var(--brand)" }}>Campus highlights</p>
+            <h2 className="font-display text-[26px] font-bold text-white">No upcoming featured events</h2>
+            <p className="text-sm mt-1.5" style={{ color: "rgba(255,255,255,0.45)" }}>Check the Events Hub for new campus activities.</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const { ev, start } = featured
+  const remaining = start - now
+  const isHappening = remaining <= 0
+
+  let countdown: { value: number; label: string }[] | null = null
+  if (!isHappening) {
+    const totalMinutes = Math.floor(remaining / 60_000)
+    const days = Math.floor(totalMinutes / (60 * 24))
+    const hours = Math.floor((totalMinutes % (60 * 24)) / 60)
+    const minutes = totalMinutes % 60
+    countdown = [
+      ...(days > 0 ? [{ value: days, label: "Days" }] : []),
+      { value: hours, label: "Hours" },
+      { value: minutes, label: "Minutes" },
+    ]
+  }
+
+  return (
+    <div className="noise rounded-[var(--r-xl)] overflow-hidden relative" style={{ minHeight: 240, background: "var(--gradient-ink)" }}>
+      <img src={ev.image} alt={ev.title} className="absolute inset-0 w-full h-full object-cover opacity-[0.22]" />
+      <div className="absolute inset-0" style={{ background: "linear-gradient(90deg, rgba(11,10,8,0.94) 8%, rgba(11,10,8,0.4) 100%)" }} />
+      <div className="relative z-10 p-9 flex items-end min-h-[240px]">
+        <div className="animate-fade-up">
+          <Badge label={ev.category} color="var(--brand)" />
+          <h2 className="font-display text-[28px] font-bold text-white mt-3 mb-1 leading-tight">{ev.title}</h2>
+          <p className="text-sm mb-5" style={{ color: "rgba(255,255,255,0.5)" }}>{ev.date} · {ev.location} · {ev.capacity.toLocaleString()} capacity</p>
+          {isHappening ? (
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full" style={{ background: tint("var(--success)", 16, "black"), border: "1px solid rgba(29,154,108,0.35)" }}>
+              <span className="w-1.5 h-1.5 rounded-full animate-pulse-dot" style={{ background: "var(--success)" }} />
+              <span className="text-xs font-bold" style={{ color: "#4ADE95" }}>Happening now</span>
+            </div>
+          ) : (
+            <div className="flex gap-6">
+              {countdown!.map((unit) => (
+                <div key={unit.label} className="min-w-[3.25rem]">
+                  <p className="font-display mono text-[30px] font-bold text-white leading-none">{String(unit.value).padStart(2, "0")}</p>
+                  <p className="text-[10.5px] mt-1.5 font-bold uppercase tracking-widest" style={{ color: "var(--brand)" }}>{unit.label}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function StudentFeed({ registered }: { registered: number[] }) {
   const todaySchedule = EVENTS
     .filter((ev) => registered.includes(ev.id) && ev.date === TODAY_LABEL)
@@ -1202,132 +1238,88 @@ function StudentFeed({ registered }: { registered: number[] }) {
   ).slice(0, 2)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <FeaturedHeroBanner />
 
-      {/* Quick stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="Events Attended" value={12} sub="This semester" icon="◈" accent="#3B7DD8" />
-        <StatCard label="Club Memberships" value={3} sub="Active" icon="◎" accent="#7C3AED" />
-        <StatCard label="YU Points" value="1,840" sub="Rank #47" icon="⬡" accent="var(--yu-gold)" />
-        <StatCard label="Certificates" value={5} sub="Earned" icon="★" accent="#1AA06D" />
+        <StatCard label="Events Attended" value={12} sub="This semester" icon={CalendarDays} accent="var(--info)" delay={0} />
+        <StatCard label="Club Memberships" value={3} sub="Active" icon={Users} accent="#8A63D6" delay={40} />
+        <StatCard label="YU Points" value="1,840" sub="Rank #47" icon={Sparkles} accent="var(--brand)" delay={80} />
+        <StatCard label="Certificates" value={5} sub="Earned" icon={Award} accent="var(--success)" delay={120} />
       </div>
 
-      {/* Today's Schedule + Announcements */}
-      <div className="grid md:grid-cols-2 gap-4">
-        <div className="bg-white rounded-2xl border border-[var(--border)] p-6">
+      <div className="grid md:grid-cols-2 gap-5">
+        <Card>
           <div className="flex items-baseline justify-between mb-4 gap-3">
-            <h3
-              className="font-bold text-base"
-              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-            >
-              Today's Schedule
-            </h3>
-            <span className="text-xs font-semibold mono" style={{ color: "var(--text-muted)" }}>
-              {TODAY_LABEL}
-            </span>
+            <h3 className="font-display font-bold text-[15px]" style={{ color: "var(--text-primary)" }}>Today's Schedule</h3>
+            <span className="text-[11px] font-semibold mono" style={{ color: "var(--text-muted)" }}>{TODAY_LABEL}</span>
           </div>
           {todaySchedule.length === 0 ? (
-            <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-              No events scheduled for today — check the Events Hub to find something happening this week.
+            <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+              Nothing on today — check the Events Hub for what's happening this week.
             </p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {todaySchedule.map((ev) => (
                 <div
                   key={ev.id}
-                  className="flex gap-3 items-start p-3 rounded-xl"
-                  style={{ background: "var(--surface)" }}
+                  className="flex gap-3 items-start p-3 rounded-xl transition-transform duration-200 hover:translate-x-0.5"
+                  style={{ background: "var(--surface-sunken)" }}
                 >
-                  <span
-                    className="text-xs font-bold mono shrink-0 pt-0.5 w-[4.5rem]"
-                    style={{ color: "var(--yu-navy)" }}
-                  >
-                    {ev.time}
-                  </span>
+                  <span className="text-[11px] font-bold mono shrink-0 pt-0.5 w-[4.25rem]" style={{ color: "var(--brand)" }}>{ev.time}</span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold" style={{ color: "var(--yu-navy)" }}>
-                      {ev.title}
+                    <p className="text-[13.5px] font-semibold" style={{ color: "var(--text-primary)" }}>{ev.title}</p>
+                    <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: "var(--text-muted)" }}>
+                      <MapPin size={10} strokeWidth={2} /> {ev.location}
                     </p>
-                    <p className="text-xs text-[var(--text-muted)] mt-0.5">{ev.location}</p>
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </Card>
 
-        <div className="bg-white rounded-2xl border border-[var(--border)] p-6">
-          <h3
-            className="font-bold text-base mb-4"
-            style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-          >
-            Announcements
-          </h3>
-          <div className="space-y-3">
+        <Card>
+          <h3 className="font-display font-bold text-[15px] mb-4" style={{ color: "var(--text-primary)" }}>Announcements</h3>
+          <div className="space-y-2.5">
             {[
               { from: "Student Affairs", text: "Registration for Fall 2026 clubs opens August 1st.", time: "2h ago", urgent: true },
               { from: "Google Dev Club", text: "New workshop slots available for the AI Summit — check Events Hub.", time: "5h ago", urgent: false },
               { from: "Sports Federation", text: "Tryouts for the basketball team are next Monday at 4PM.", time: "1d ago", urgent: false },
             ].map((a, i) => (
-              <div key={i} className="flex gap-3 items-start p-3 rounded-xl" style={{ background: "var(--surface)" }}>
-                {a.urgent && (
-                  <div
-                    className="w-1.5 h-1.5 rounded-full mt-2 shrink-0"
-                    style={{ background: "var(--danger)" }}
-                  />
-                )}
+              <div key={i} className="flex gap-3 items-start p-3 rounded-xl" style={{ background: "var(--surface-sunken)" }}>
+                {a.urgent && <span className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0" style={{ background: "var(--danger)" }} />}
                 <div className="min-w-0 flex-1">
-                  <span className="text-xs font-bold" style={{ color: "var(--yu-navy)" }}>
-                    {a.from}
-                  </span>{" "}
-                  <span className="text-sm text-[var(--text-secondary)]">{a.text}</span>
+                  <span className="text-xs font-bold" style={{ color: "var(--text-primary)" }}>{a.from}</span>{" "}
+                  <span className="text-[13px]" style={{ color: "var(--text-secondary)" }}>{a.text}</span>
                 </div>
-                <span className="text-xs text-[var(--text-muted)] mono shrink-0">{a.time}</span>
+                <span className="text-[11px] mono shrink-0" style={{ color: "var(--text-muted)" }}>{a.time}</span>
               </div>
             ))}
           </div>
+        </Card>
+      </div>
+
+      <div>
+        <SectionHeader eyebrow="Curated for you" title="Recommended" />
+        <div className="mt-4">
+          {recommended.length === 0 ? (
+            <EmptyState icon={Sparkles} title="You're all caught up" body="Check the Events Hub when new campus events are posted." />
+          ) : (
+            <div className="grid md:grid-cols-3 gap-4">
+              {recommended.map((ev) => <EventPreviewCard key={ev.id} event={ev} reason={ev.reason} />)}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Recommended for You */}
-      <div>
-        <h3
-          className="font-bold text-base mb-4"
-          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-        >
-          Recommended for You
-        </h3>
-        {recommended.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-[var(--border)] p-6">
-            <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-              You're all caught up — check the Events Hub when new campus events are posted.
-            </p>
-          </div>
-        ) : (
-          <div className="grid md:grid-cols-3 gap-4">
-            {recommended.map((ev) => (
-              <EventPreviewCard key={ev.id} event={ev} reason={ev.reason} />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Upcoming events preview */}
       {upcoming.length > 0 && (
-      <div>
-        <h3
-          className="font-bold text-base mb-4"
-          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-        >
-          Upcoming Events
-        </h3>
-        <div className="grid md:grid-cols-2 gap-4">
-          {upcoming.map((ev) => (
-            <EventPreviewCard key={ev.id} event={ev} />
-          ))}
+        <div>
+          <SectionHeader title="Upcoming Events" />
+          <div className="grid md:grid-cols-2 gap-4 mt-4">
+            {upcoming.map((ev) => <EventPreviewCard key={ev.id} event={ev} />)}
+          </div>
         </div>
-      </div>
       )}
 
       <SemesterJourneyCard registered={registered} />
@@ -1349,90 +1341,71 @@ function EventsHub({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2
-          className="text-xl font-bold mb-1"
-          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-        >
-          Events Discovery Hub
-        </h2>
-        <p className="text-sm text-[var(--text-secondary)]">
-          Find and register for campus events — your QR pass is generated automatically.
-        </p>
+      <SectionHeader eyebrow="Discover" title="Events Hub" subtitle="Find and register for campus events — your QR pass is generated automatically." />
+
+      <div className="flex gap-1.5 flex-wrap">
+        {categories.map((cat) => {
+          const active = filter === cat
+          return (
+            <button
+              key={cat}
+              onClick={() => setFilter(cat)}
+              className="relative px-4 py-2 rounded-full text-[13px] font-semibold transition-colors duration-200"
+              style={{ color: active ? "white" : "var(--text-secondary)" }}
+            >
+              {active && (
+                <motion.div
+                  layoutId="event-filter-pill"
+                  className="absolute inset-0 rounded-full"
+                  style={{ background: "var(--ink)" }}
+                  transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                />
+              )}
+              <span className="relative z-10">{cat}</span>
+            </button>
+          )
+        })}
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-2 flex-wrap">
-        {categories.map((cat) => (
-          <button
-            key={cat}
-            onClick={() => setFilter(cat)}
-            className="px-4 py-1.5 rounded-xl text-sm font-semibold transition-all"
-            style={{
-              background: filter === cat ? "var(--yu-navy)" : "white",
-              color: filter === cat ? "white" : "var(--text-secondary)",
-              border: `1px solid ${filter === cat ? "var(--yu-navy)" : "var(--border)"}`,
-            }}
-          >
-            {cat}
-          </button>
-        ))}
-      </div>
-
-      {/* Event cards */}
       <div className="space-y-4">
-        {filtered.map((ev) => {
+        {filtered.map((ev, i) => {
           const isReg = registered.includes(ev.id)
           return (
-            <div
-              key={ev.id}
-              className="bg-white rounded-2xl border border-[var(--border)] overflow-hidden flex flex-col md:flex-row"
-            >
-              <div className="relative w-full md:w-48 h-40 md:h-auto bg-gray-100 shrink-0">
-                <img src={ev.image} alt={ev.title} className="w-full h-full object-cover" />
+            <Card key={ev.id} hover padding="p-0" className="overflow-hidden md:flex animate-fade-up" style={{ animationDelay: `${i * 40}ms` }}>
+              <div className="relative w-full md:w-56 h-44 md:h-auto shrink-0 overflow-hidden">
+                <img src={ev.image} alt={ev.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
               </div>
-              <div className="p-5 flex-1 flex flex-col justify-between">
+              <div className="p-6 flex-1 flex flex-col justify-between">
                 <div>
-                  <div className="flex items-start justify-between gap-3 mb-2">
+                  <div className="flex items-start justify-between gap-3 mb-2.5">
                     <div>
-                      <p
-                        className="font-bold text-base"
-                        style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-                      >
-                        {ev.title}
-                      </p>
-                      <p className="text-xs text-[var(--text-muted)] mt-0.5">{ev.club}</p>
+                      <p className="font-display font-bold text-[16px]" style={{ color: "var(--text-primary)" }}>{ev.title}</p>
+                      <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{ev.club}</p>
                     </div>
                     <div className="flex gap-2 shrink-0 flex-wrap justify-end">
                       <Badge label={ev.category} color={ev.color} />
-                      <Badge label={ev.vision2030} color="#1AA06D" />
+                      <Badge label={ev.vision2030} color="var(--success)" />
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-4 text-xs text-[var(--text-secondary)] mb-3">
-                    <span>📅 {ev.date}</span>
-                    <span>⏰ {ev.time}</span>
-                    <span>📍 {ev.location}</span>
+                  <div className="flex flex-wrap gap-4 text-xs mb-4" style={{ color: "var(--text-secondary)" }}>
+                    <span className="flex items-center gap-1.5"><CalendarDays size={13} strokeWidth={2} /> {ev.date}</span>
+                    <span className="flex items-center gap-1.5"><Clock size={13} strokeWidth={2} /> {ev.time}</span>
+                    <span className="flex items-center gap-1.5"><MapPin size={13} strokeWidth={2} /> {ev.location}</span>
                   </div>
                   <ProgressBar value={ev.registered} max={ev.capacity} color={ev.color} />
-                  <p className="text-xs text-[var(--text-muted)] mt-1 mono">
-                    {ev.registered} / {ev.capacity} spots filled
-                  </p>
+                  <p className="text-[11px] mt-1.5 mono" style={{ color: "var(--text-muted)" }}>{ev.registered} / {ev.capacity} spots filled</p>
                 </div>
-                <div className="mt-4">
-                  <button
+                <div className="mt-5">
+                  <Button
+                    variant={isReg ? "secondary" : "primary"}
+                    icon={isReg ? CheckCircle2 : Ticket}
                     onClick={() => setRegistered((prev) => isReg ? prev.filter((id) => id !== ev.id) : [...prev, ev.id])}
-                    className="px-5 py-2 rounded-xl text-sm font-bold transition-all hover:opacity-90"
-                    style={{
-                      background: isReg ? "var(--surface)" : "var(--yu-navy)",
-                      color: isReg ? "var(--text-secondary)" : "white",
-                      border: `1px solid ${isReg ? "var(--border)" : "var(--yu-navy)"}`,
-                    }}
                   >
-                    {isReg ? "✓ Registered" : "Register / RSVP"}
-                  </button>
+                    {isReg ? "Registered" : "Register / RSVP"}
+                  </Button>
                 </div>
               </div>
-            </div>
+            </Card>
           )
         })}
       </div>
@@ -1450,84 +1423,55 @@ function QRPass() {
 
   return (
     <div className="flex flex-col items-center max-w-sm mx-auto space-y-6">
-      <div>
-        <h2
-          className="text-xl font-bold text-center"
-          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-        >
-          My QR Pass
-        </h2>
-        <p className="text-sm text-[var(--text-secondary)] text-center mt-1">
-          Show this at event check-in for instant attendance tracking
-        </p>
-      </div>
+      <SectionHeader title="My QR Pass" subtitle="Show this at event check-in for instant attendance tracking" />
 
-      {/* Pass card */}
-      <div
-        className="w-full rounded-3xl overflow-hidden"
-        style={{ background: "var(--yu-navy)", boxShadow: "0 24px 64px rgba(15,28,61,0.32)" }}
-      >
-        {/* Header */}
-        <div className="px-6 pt-6 pb-4 flex items-center justify-between">
+      <div className="noise w-full rounded-[var(--r-2xl)] overflow-hidden relative animate-scale-in" style={{ background: "var(--gradient-ink)", boxShadow: "var(--shadow-lg)" }}>
+        <div className="absolute -top-16 -right-16 w-48 h-48 rounded-full pointer-events-none" style={{ background: "var(--brand)", opacity: 0.18, filter: "blur(60px)" }} />
+
+        <div className="px-6 pt-6 pb-4 flex items-center justify-between relative z-10">
           <div>
-            <p className="text-[var(--yu-gold)] text-xs font-bold mono">AL YAMAMAH UNIVERSITY</p>
-            <p className="text-white text-sm font-semibold mt-0.5">Digital Student Pass</p>
+            <p className="text-[9.5px] font-bold mono uppercase tracking-widest" style={{ color: "var(--brand)" }}>Al Yamamah University</p>
+            <p className="font-display text-white text-[14px] font-semibold mt-0.5">Digital Student Pass</p>
           </div>
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center font-extrabold text-sm"
-            style={{ background: "var(--yu-gold)", color: "var(--yu-navy-dark)" }}
-          >
-            YU
-          </div>
+          <div className="font-display w-10 h-10 rounded-xl flex items-center justify-center font-extrabold text-sm" style={{ background: "var(--gradient-brand)" }}>YU</div>
         </div>
 
-        {/* QR code */}
-        <div className="mx-6 mb-4 rounded-2xl p-6 flex flex-col items-center qr-bg" style={{ background: "white" }}>
-          <div
-            className="transition-all duration-1000"
-            style={{ opacity: animating ? 0.85 : 1, transform: animating ? "scale(0.97)" : "scale(1)" }}
-          >
+        <div className="qr-bg mx-6 mb-4 rounded-2xl p-6 flex flex-col items-center relative z-10" style={{ background: "white" }}>
+          <div className="transition-all duration-1000" style={{ opacity: animating ? 0.85 : 1, transform: animating ? "scale(0.97)" : "scale(1)" }}>
             <QRCode size={160} />
           </div>
-          <p className="mono text-xs mt-3" style={{ color: "var(--yu-navy)" }}>
-            S202210045-YU-2026
-          </p>
+          <p className="mono text-xs mt-3" style={{ color: "var(--ink)" }}>S202210045-YU-2026</p>
         </div>
 
-        {/* Student info */}
-        <div className="px-6 pb-6 space-y-3">
+        <div className="px-6 pb-6 space-y-3 relative z-10">
           <div className="flex justify-between text-xs">
             <div>
-              <p className="text-white/40 mono">STUDENT</p>
+              <p className="mono" style={{ color: "rgba(255,255,255,0.35)" }}>STUDENT</p>
               <p className="text-white font-semibold mt-0.5">Sarah Al-Mutairi</p>
             </div>
             <div className="text-right">
-              <p className="text-white/40 mono">ID NUMBER</p>
+              <p className="mono" style={{ color: "rgba(255,255,255,0.35)" }}>ID NUMBER</p>
               <p className="text-white font-semibold mt-0.5 mono">202210045</p>
             </div>
           </div>
           <div className="flex justify-between text-xs">
             <div>
-              <p className="text-white/40 mono">PROGRAM</p>
+              <p className="mono" style={{ color: "rgba(255,255,255,0.35)" }}>PROGRAM</p>
               <p className="text-white font-semibold mt-0.5">{STUDENT_MAJOR}</p>
             </div>
             <div className="text-right">
-              <p className="text-white/40 mono">VALID UNTIL</p>
-              <p className="text-[var(--yu-gold)] font-semibold mt-0.5 mono">May 2027</p>
+              <p className="mono" style={{ color: "rgba(255,255,255,0.35)" }}>VALID UNTIL</p>
+              <p className="font-semibold mt-0.5 mono" style={{ color: "var(--brand)" }}>May 2027</p>
             </div>
           </div>
 
-          {/* Registered events */}
-          <div
-            className="rounded-xl p-3 mt-2"
-            style={{ background: "rgba(255,255,255,0.06)" }}
-          >
-            <p className="text-white/40 text-xs mono mb-2">REGISTERED EVENTS</p>
+          <div className="rounded-xl p-3.5 mt-2" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.06)" }}>
+            <p className="text-[9.5px] mono uppercase tracking-widest mb-2" style={{ color: "rgba(255,255,255,0.32)" }}>Registered Events</p>
             <div className="space-y-1.5">
               {EVENTS.slice(0, 3).map((ev) => (
                 <div key={ev.id} className="flex items-center justify-between">
-                  <p className="text-white/80 text-xs truncate flex-1 mr-2">{ev.title}</p>
-                  <span className="text-[var(--yu-gold)] text-xs mono shrink-0">{ev.date}</span>
+                  <p className="text-xs truncate flex-1 mr-2" style={{ color: "rgba(255,255,255,0.75)" }}>{ev.title}</p>
+                  <span className="text-[11px] mono shrink-0" style={{ color: "var(--brand)" }}>{ev.date}</span>
                 </div>
               ))}
             </div>
@@ -1535,7 +1479,7 @@ function QRPass() {
         </div>
       </div>
 
-      <p className="text-xs text-[var(--text-muted)] text-center">
+      <p className="text-xs text-center max-w-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
         QR code refreshes every 30 seconds for security. Attendance certificates are issued automatically after scanning.
       </p>
     </div>
@@ -1547,68 +1491,40 @@ function MyClubs() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2
-          className="text-xl font-bold mb-1"
-          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-        >
-          My Clubs
-        </h2>
-        <p className="text-sm text-[var(--text-secondary)]">
-          Manage your memberships and stay up to date with club activity.
-        </p>
-      </div>
+      <SectionHeader title="My Clubs" subtitle="Manage your memberships and stay up to date with club activity." />
 
       <div className="space-y-3">
-        {CLUBS.map((club) => {
+        {CLUBS.map((club, i) => {
           const isJoined = joined.includes(club.id)
-          const catColors: Record<string, string> = {
-            Tech: "#3B7DD8", Academic: "#7C3AED", Cultural: "#C9A84C", Sports: "#D94040",
-          }
-          const color = catColors[club.category] || "#3B7DD8"
+          const color = CATEGORY_COLORS[club.category] ?? "var(--info)"
           return (
-            <div
-              key={club.id}
-              className="bg-white rounded-2xl border border-[var(--border)] p-5 flex items-center gap-4"
-            >
+            <Card key={club.id} hover className="flex items-center gap-4 animate-fade-up" style={{ animationDelay: `${i * 40}ms` }}>
               <div
-                className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold text-sm shrink-0"
+                className="font-display w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold text-sm shrink-0"
                 style={{ background: color }}
               >
                 {club.name.split(" ").map((w) => w[0]).join("").slice(0, 2)}
               </div>
               <div className="flex-1 min-w-0">
-                <p
-                  className="font-bold text-sm"
-                  style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-                >
-                  {club.name}
-                </p>
-                <div className="flex gap-3 mt-1 text-xs text-[var(--text-muted)]">
-                  <span>{club.members} members</span>
+                <p className="font-display font-bold text-[14px]" style={{ color: "var(--text-primary)" }}>{club.name}</p>
+                <div className="flex gap-2.5 mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+                  <span className="flex items-center gap-1"><Users size={11} strokeWidth={2} /> {club.members}</span>
                   <span>·</span>
                   <span>{club.meetings}</span>
                 </div>
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 <Badge label={club.category} color={color} />
-                <button
-                  onClick={() =>
-                    setJoined((prev) =>
-                      isJoined ? prev.filter((id) => id !== club.id) : [...prev, club.id]
-                    )
-                  }
-                  className="px-4 py-1.5 rounded-xl text-xs font-bold transition-all"
-                  style={{
-                    background: isJoined ? "var(--surface)" : "var(--yu-navy)",
-                    color: isJoined ? "var(--text-secondary)" : "white",
-                    border: `1px solid ${isJoined ? "var(--border)" : "var(--yu-navy)"}`,
-                  }}
+                <Button
+                  size="sm"
+                  variant={isJoined ? "secondary" : "primary"}
+                  icon={isJoined ? UserCheck : UserPlus}
+                  onClick={() => setJoined((prev) => isJoined ? prev.filter((id) => id !== club.id) : [...prev, club.id])}
                 >
-                  {isJoined ? "Joined ✓" : "Join"}
-                </button>
+                  {isJoined ? "Joined" : "Join"}
+                </Button>
               </div>
-            </div>
+            </Card>
           )
         })}
       </div>
@@ -1628,122 +1544,68 @@ function RewardsView() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2
-          className="text-xl font-bold mb-1"
-          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-        >
-          YU Rewards & XP
-        </h2>
-        <p className="text-sm text-[var(--text-secondary)]">Earn points and unlock campus perks.</p>
-      </div>
+      <SectionHeader title="YU Rewards & XP" subtitle="Earn points and unlock campus perks." />
 
-      {/* XP card */}
-      <div
-        className="rounded-2xl p-6 flex flex-col md:flex-row gap-6 items-center"
-        style={{ background: "var(--yu-navy)" }}
-      >
-        <div className="text-center">
-          <p className="text-[var(--yu-gold)] text-xs font-bold mono mb-1">YOUR YU POINTS</p>
-          <p
-            className="text-5xl font-extrabold text-white"
-            style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-          >
-            1,840
-          </p>
-          <p className="text-white/40 text-sm mt-1">Campus Rank #47</p>
+      <div className="noise rounded-[var(--r-xl)] p-8 flex flex-col md:flex-row gap-8 items-center relative overflow-hidden" style={{ background: "var(--gradient-ink)" }}>
+        <div className="absolute -bottom-20 -left-10 w-64 h-64 rounded-full pointer-events-none" style={{ background: "var(--brand)", opacity: 0.14, filter: "blur(80px)" }} />
+        <div className="text-center relative z-10 shrink-0">
+          <p className="text-[10.5px] font-bold mono uppercase tracking-widest mb-1.5" style={{ color: "var(--brand)" }}>Your YU Points</p>
+          <p className="font-display text-[52px] font-extrabold text-white leading-none">1,840</p>
+          <p className="text-sm mt-2" style={{ color: "rgba(255,255,255,0.4)" }}>Campus Rank #47</p>
         </div>
-        <div className="flex-1 w-full">
-          <p className="text-white/60 text-xs mb-2">Next reward at 2,000 pts</p>
-          <div className="w-full h-2 rounded-full" style={{ background: "rgba(255,255,255,0.12)" }}>
-            <div className="h-full rounded-full" style={{ width: "92%", background: "var(--yu-gold)" }} />
+        <div className="flex-1 w-full relative z-10">
+          <p className="text-xs mb-2.5" style={{ color: "rgba(255,255,255,0.55)" }}>Next reward at 2,000 pts</p>
+          <div className="w-full h-2 rounded-full" style={{ background: "rgba(255,255,255,0.1)" }}>
+            <div className="h-full rounded-full" style={{ width: "92%", background: "var(--gradient-brand)" }} />
           </div>
-          <div className="mt-4 grid grid-cols-3 gap-3 text-center">
-            {[
-              { label: "Events", pts: "+50 pts" },
-              { label: "Clubs", pts: "+100 pts" },
-              { label: "Volunteering", pts: "+200 pts" },
-            ].map((item) => (
-              <div key={item.label} className="rounded-xl p-2" style={{ background: "rgba(255,255,255,0.07)" }}>
-                <p className="text-[var(--yu-gold)] text-xs font-bold mono">{item.pts}</p>
-                <p className="text-white/60 text-xs mt-0.5">{item.label}</p>
+          <div className="mt-5 grid grid-cols-3 gap-3 text-center">
+            {[{ label: "Events", pts: "+50 pts" }, { label: "Clubs", pts: "+100 pts" }, { label: "Volunteering", pts: "+200 pts" }].map((item) => (
+              <div key={item.label} className="rounded-xl p-2.5" style={{ background: "rgba(255,255,255,0.05)" }}>
+                <p className="text-xs font-bold mono" style={{ color: "var(--brand)" }}>{item.pts}</p>
+                <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.5)" }}>{item.label}</p>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Badges */}
       <div>
-        <h3
-          className="font-bold text-base mb-4"
-          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-        >
-          Your Badges
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {badges.map((badge) => (
-            <div
-              key={badge.name}
-              className="bg-white rounded-2xl border border-[var(--border)] p-4 text-center transition-all hover:-translate-y-0.5"
-              style={{ opacity: badge.earned ? 1 : 0.45 }}
-            >
+        <SectionHeader title="Your Badges" />
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+          {badges.map((badge, i) => (
+            <Card key={badge.name} hover className="text-center animate-fade-up" style={{ opacity: badge.earned ? 1 : 0.42, animationDelay: `${i * 40}ms` }}>
               <div className="text-3xl mb-2">{badge.icon}</div>
-              <p
-                className="font-bold text-sm"
-                style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-              >
-                {badge.name}
-              </p>
-              <p className="text-xs text-[var(--text-muted)] mt-0.5">{badge.desc}</p>
+              <p className="font-display font-bold text-[13.5px]" style={{ color: "var(--text-primary)" }}>{badge.name}</p>
+              <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{badge.desc}</p>
               {badge.earned && (
-                <span
-                  className="inline-block mt-2 text-xs font-bold px-2 py-0.5 rounded-full"
-                  style={{ background: "var(--yu-gold-pale)", color: "var(--yu-gold)" }}
-                >
+                <span className="inline-block mt-2.5 text-[10.5px] font-bold px-2.5 py-1 rounded-full" style={{ background: "var(--brand-100)", color: "var(--brand-700)" }}>
                   Earned
                 </span>
               )}
-            </div>
+            </Card>
           ))}
         </div>
       </div>
 
-      {/* Perks */}
-      <div className="bg-white rounded-2xl border border-[var(--border)] p-5">
-        <h3
-          className="font-bold text-base mb-4"
-          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-        >
-          Redeem Points
-        </h3>
-        <div className="space-y-3">
+      <Card>
+        <h3 className="font-display font-bold text-[15px] mb-4" style={{ color: "var(--text-primary)" }}>Redeem Points</h3>
+        <div className="space-y-2.5">
           {[
             { perk: "Cafeteria 15% Discount", cost: "500 pts", available: true },
             { perk: "Priority Course Registration", cost: "1,200 pts", available: true },
             { perk: "YU Branded Hoodie", cost: "2,500 pts", available: false },
             { perk: "Parking Priority Pass (1 month)", cost: "800 pts", available: true },
           ].map((item, i) => (
-            <div key={i} className="flex items-center justify-between p-3 rounded-xl" style={{ background: "var(--surface)" }}>
+            <div key={i} className="flex items-center justify-between p-3.5 rounded-xl" style={{ background: "var(--surface-sunken)" }}>
               <div>
-                <p className="text-sm font-semibold" style={{ color: "var(--yu-navy)" }}>{item.perk}</p>
-                <p className="text-xs mono" style={{ color: "var(--yu-gold)" }}>{item.cost}</p>
+                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{item.perk}</p>
+                <p className="text-xs mono mt-0.5" style={{ color: "var(--brand)" }}>{item.cost}</p>
               </div>
-              <button
-                className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
-                style={{
-                  background: item.available ? "var(--yu-navy)" : "var(--border)",
-                  color: item.available ? "white" : "var(--text-muted)",
-                  cursor: item.available ? "pointer" : "not-allowed",
-                }}
-                disabled={!item.available}
-              >
-                Redeem
-              </button>
+              <Button size="sm" variant={item.available ? "primary" : "quiet"} disabled={!item.available}>Redeem</Button>
             </div>
           ))}
         </div>
-      </div>
+      </Card>
     </div>
   )
 }
@@ -1752,89 +1614,59 @@ function RewardsView() {
 function CommandCenter() {
   return (
     <div className="space-y-6">
-      <div>
-        <h2
-          className="text-xl font-bold mb-1"
-          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-        >
-          Club Command Center
-        </h2>
-        <p className="text-sm text-[var(--text-secondary)]">Google Developer Student Club · Spring 2026</p>
-      </div>
+      <SectionHeader eyebrow="Google Developer Student Club" title="Command Center" subtitle="Spring 2026 semester overview" />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="Active Members" value={142} sub="+12 this month" icon="◎" accent="#7C3AED" />
-        <StatCard label="Pending Requests" value={6} sub="Awaiting approval" icon="◈" accent="var(--warning)" />
-        <StatCard label="Events This Sem." value={8} sub="3 upcoming" icon="✦" accent="#3B7DD8" />
-        <StatCard label="Avg. Attendance" value="78%" sub="Up from 65%" icon="⬡" accent="#1AA06D" />
+        <StatCard label="Active Members" value={142} sub="+12 this month" icon={Users} accent="#8A63D6" />
+        <StatCard label="Pending Requests" value={6} sub="Awaiting approval" icon={UserPlus} accent="var(--warning)" delay={40} />
+        <StatCard label="Events This Sem." value={8} sub="3 upcoming" icon={Rocket} accent="var(--info)" delay={80} />
+        <StatCard label="Avg. Attendance" value="78%" sub="Up from 65%" icon={TrendingUp} accent="var(--success)" delay={120} />
       </div>
 
-      {/* Join requests */}
-      <div className="bg-white rounded-2xl border border-[var(--border)] p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3
-            className="font-bold text-base"
-            style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-          >
-            Pending Join Requests
-          </h3>
+      <Card>
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="font-display font-bold text-[15px]" style={{ color: "var(--text-primary)" }}>Pending Join Requests</h3>
           <Badge label="6 pending" color="var(--warning)" />
         </div>
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {[
             { name: "Mohammed Al-Rashid", major: "Computer Science", year: "2nd year", id: "202310089" },
             { name: "Hessa Al-Qahtani", major: "Information Systems", year: "3rd year", id: "202210201" },
             { name: "Yousuf Al-Anzi", major: "Cybersecurity", year: "1st year", id: "202410015" },
           ].map((req, i) => (
-            <div key={i} className="flex items-center justify-between gap-3 p-3 rounded-xl" style={{ background: "var(--surface)" }}>
-              <Avatar name={req.name} size={36} bg="var(--yu-navy-mid)" />
+            <div key={i} className="flex items-center justify-between gap-3 p-3.5 rounded-xl" style={{ background: "var(--surface-sunken)" }}>
+              <Avatar name={req.name} size={38} />
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm" style={{ color: "var(--yu-navy)" }}>{req.name}</p>
-                <p className="text-xs text-[var(--text-muted)]">{req.major} · {req.year} · <span className="mono">{req.id}</span></p>
+                <p className="font-semibold text-[13.5px]" style={{ color: "var(--text-primary)" }}>{req.name}</p>
+                <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{req.major} · {req.year} · <span className="mono">{req.id}</span></p>
               </div>
               <div className="flex gap-2 shrink-0">
-                <button
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-white transition-all hover:opacity-90"
-                  style={{ background: "#1AA06D" }}
-                >
-                  Approve
-                </button>
-                <button
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:opacity-90"
-                  style={{ background: "var(--border)", color: "var(--text-secondary)" }}
-                >
-                  Decline
-                </button>
+                <Button size="sm" variant="primary" icon={Check}>Approve</Button>
+                <Button size="sm" variant="ghost" icon={X}>Decline</Button>
               </div>
             </div>
           ))}
         </div>
-      </div>
+      </Card>
 
-      {/* Engagement chart — simple visual */}
-      <div className="bg-white rounded-2xl border border-[var(--border)] p-6">
-        <h3
-          className="font-bold text-base mb-4"
-          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-        >
-          Monthly Attendance
-        </h3>
-        <div className="flex items-end gap-3 h-32">
+      <Card>
+        <h3 className="font-display font-bold text-[15px] mb-5" style={{ color: "var(--text-primary)" }}>Monthly Attendance</h3>
+        <div className="flex items-end gap-3 h-36">
           {[
             { month: "Feb", val: 55 }, { month: "Mar", val: 72 }, { month: "Apr", val: 68 },
             { month: "May", val: 85 }, { month: "Jun", val: 79 }, { month: "Jul", val: 91 },
           ].map((d) => (
-            <div key={d.month} className="flex-1 flex flex-col items-center gap-1">
-              <p className="text-xs font-bold mono" style={{ color: "var(--yu-navy)" }}>{d.val}%</p>
+            <div key={d.month} className="flex-1 flex flex-col items-center gap-2">
+              <p className="text-xs font-bold mono" style={{ color: "var(--text-primary)" }}>{d.val}%</p>
               <div
-                className="w-full rounded-t-lg transition-all"
-                style={{ height: `${(d.val / 100) * 96}px`, background: "var(--yu-navy)" }}
+                className="w-full rounded-t-lg transition-all duration-500"
+                style={{ height: `${(d.val / 100) * 100}px`, background: d.month === "Jul" ? "var(--gradient-brand)" : "var(--surface-sunken)" }}
               />
-              <p className="text-xs text-[var(--text-muted)] mono">{d.month}</p>
+              <p className="text-xs mono" style={{ color: "var(--text-muted)" }}>{d.month}</p>
             </div>
           ))}
         </div>
-      </div>
+      </Card>
     </div>
   )
 }
@@ -1848,123 +1680,99 @@ function CreateEvent() {
 
   if (submitted) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-center">
-        <div className="text-5xl mb-4">✓</div>
-        <h2
-          className="text-2xl font-bold mb-2"
-          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-        >
-          Event Submitted!
-        </h2>
-        <p className="text-[var(--text-secondary)] text-sm mb-6">
+      <div className="flex flex-col items-center justify-center py-24 text-center animate-scale-in">
+        <div className="w-16 h-16 rounded-full flex items-center justify-center mb-5" style={{ background: "var(--success-pale)" }}>
+          <CheckCircle2 size={30} strokeWidth={2} color="var(--success)" />
+        </div>
+        <h2 className="font-display text-2xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Event Submitted!</h2>
+        <p className="text-sm mb-7 max-w-sm" style={{ color: "var(--text-secondary)" }}>
           Your event has been sent to your club advisor for approval.
         </p>
-        <button
-          onClick={() => setSubmitted(false)}
-          className="px-6 py-2.5 rounded-xl font-bold text-sm text-white"
-          style={{ background: "var(--yu-navy)" }}
-        >
-          Create Another
-        </button>
+        <Button variant="secondary" onClick={() => setSubmitted(false)}>Create Another</Button>
       </div>
     )
   }
 
+  const inputCls = "w-full px-4 py-3 rounded-xl text-sm outline-none border transition-all duration-200 focus:border-[var(--brand)]"
+  const inputStyle: CSSProperties = { borderColor: "var(--border)", background: "var(--surface-sunken)", color: "var(--text-primary)" }
+  const labelCls = "text-[10.5px] font-bold mono uppercase tracking-widest block mb-1.5"
+  const labelStyle: CSSProperties = { color: "var(--text-secondary)" }
+
   const field = (label: string, key: keyof typeof form, type = "text", placeholder = "") => (
     <div>
-      <label className="text-xs font-semibold mono block mb-1.5" style={{ color: "var(--text-secondary)" }}>
-        {label}
-      </label>
+      <label className={labelCls} style={labelStyle}>{label}</label>
       <input
         type={type}
         placeholder={placeholder}
         value={form[key]}
         onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-        className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border transition-all"
-        style={{ borderColor: "var(--border)", background: "white", color: "var(--text-primary)" }}
+        className={inputCls}
+        style={inputStyle}
       />
     </div>
   )
 
   return (
     <div className="space-y-6 max-w-xl">
-      <div>
-        <h2
-          className="text-xl font-bold mb-1"
-          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-        >
-          Create New Event
-        </h2>
-        <p className="text-sm text-[var(--text-secondary)]">Fill in the details and submit for advisor approval.</p>
-      </div>
+      <SectionHeader title="Create New Event" subtitle="Fill in the details and submit for advisor approval." />
 
-      <div className="bg-white rounded-2xl border border-[var(--border)] p-6 space-y-4">
-        {field("EVENT NAME", "name", "text", "e.g. AI Workshop Series")}
+      <Card className="space-y-4">
+        {field("Event name", "name", "text", "e.g. AI Workshop Series")}
         <div>
-          <label className="text-xs font-semibold mono block mb-1.5" style={{ color: "var(--text-secondary)" }}>
-            DESCRIPTION
-          </label>
+          <label className={labelCls} style={labelStyle}>Description</label>
           <textarea
             rows={3}
             placeholder="Describe the event, its goals, and expected outcomes..."
             value={form.desc}
             onChange={(e) => setForm((f) => ({ ...f, desc: e.target.value }))}
-            className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border resize-none"
-            style={{ borderColor: "var(--border)", background: "white", color: "var(--text-primary)" }}
+            className={`${inputCls} resize-none`}
+            style={inputStyle}
           />
         </div>
         <div className="grid grid-cols-2 gap-4">
-          {field("DATE", "date", "date")}
-          {field("TIME", "time", "time")}
+          {field("Date", "date", "date")}
+          {field("Time", "time", "time")}
         </div>
-        {field("LOCATION", "location", "text", "e.g. Tuwaiq Auditorium")}
-        {field("CAPACITY", "capacity", "number", "e.g. 150")}
+        {field("Location", "location", "text", "e.g. Tuwaiq Auditorium")}
+        {field("Capacity", "capacity", "number", "e.g. 150")}
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-xs font-semibold mono block mb-1.5" style={{ color: "var(--text-secondary)" }}>
-              CATEGORY
-            </label>
+            <label className={labelCls} style={labelStyle}>Category</label>
             <select
               value={form.category}
               onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-              className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border"
-              style={{ borderColor: "var(--border)", background: "white", color: "var(--text-primary)" }}
+              className={inputCls}
+              style={inputStyle}
             >
               {["Tech", "Academic", "Cultural", "Sports"].map((c) => <option key={c}>{c}</option>)}
             </select>
           </div>
           <div>
-            <label className="text-xs font-semibold mono block mb-1.5" style={{ color: "var(--text-secondary)" }}>
-              VISION 2030 TAG
-            </label>
+            <label className={labelCls} style={labelStyle}>Vision 2030 Tag</label>
             <select
               value={form.vision2030}
               onChange={(e) => setForm((f) => ({ ...f, vision2030: e.target.value }))}
-              className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border"
-              style={{ borderColor: "var(--border)", background: "white", color: "var(--text-primary)" }}
+              className={inputCls}
+              style={inputStyle}
             >
               {["Innovation", "Sustainability", "Community Development"].map((c) => <option key={c}>{c}</option>)}
             </select>
           </div>
         </div>
 
-        <div
-          className="rounded-xl p-4 border-2 border-dashed text-center cursor-pointer hover:opacity-70 transition-all"
-          style={{ borderColor: "var(--border)" }}
+        <button
+          className="w-full rounded-xl p-5 border-2 border-dashed text-center transition-all duration-200 hover:border-[var(--brand)]"
+          style={{ borderColor: "var(--border-strong)" }}
         >
-          <p className="text-2xl mb-1">🖼</p>
-          <p className="text-sm text-[var(--text-muted)]">Upload event poster (JPG, PNG)</p>
-        </div>
-      </div>
+          <ImagePlus size={22} strokeWidth={1.75} className="mx-auto mb-1.5" style={{ color: "var(--text-muted)" }} />
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Upload event poster (JPG, PNG)</p>
+        </button>
+      </Card>
 
-      <button
-        onClick={() => setSubmitted(true)}
-        className="px-8 py-3 rounded-xl font-bold text-sm text-white transition-all hover:opacity-90"
-        style={{ background: "var(--yu-navy)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-      >
-        Submit for Approval →
-      </button>
+      <Button variant="primary" size="lg" icon={ArrowRight} iconPosition="right" onClick={() => setSubmitted(true)}>
+        Submit for Approval
+      </Button>
     </div>
   )
 }
@@ -1984,110 +1792,69 @@ function QRScanner() {
 
   return (
     <div className="space-y-6 max-w-lg mx-auto">
-      <div>
-        <h2
-          className="text-xl font-bold mb-1"
-          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-        >
-          Live QR Check-In Scanner
-        </h2>
-        <p className="text-sm text-[var(--text-secondary)]">Scan member QR passes for instant attendance logging.</p>
-      </div>
+      <SectionHeader title="Live QR Check-In" subtitle="Scan member QR passes for instant attendance logging." />
 
-      {/* Scanner UI */}
-      <div
-        className="rounded-2xl overflow-hidden flex flex-col items-center"
-        style={{ background: "var(--yu-navy-dark)" }}
-      >
-        <div className="relative w-full" style={{ height: 260 }}>
+      <div className="noise rounded-[var(--r-xl)] overflow-hidden flex flex-col items-center relative" style={{ background: "var(--obsidian)" }}>
+        <div className="relative w-full" style={{ height: 280 }}>
           <div className="absolute inset-0 flex items-center justify-center">
-            <div
-              className="w-48 h-48 rounded-2xl border-2 relative"
-              style={{ borderColor: scanning ? "var(--yu-gold)" : "rgba(255,255,255,0.3)" }}
-            >
-              {/* Corner accents */}
+            <div className="w-52 h-52 rounded-2xl border-2 relative transition-all duration-300" style={{ borderColor: scanning ? "var(--brand)" : "rgba(255,255,255,0.15)" }}>
               {[
-                "top-0 left-0 border-t-2 border-l-2",
-                "top-0 right-0 border-t-2 border-r-2",
-                "bottom-0 left-0 border-b-2 border-l-2",
-                "bottom-0 right-0 border-b-2 border-r-2",
+                "top-0 left-0 border-t-2 border-l-2 rounded-tl-2xl",
+                "top-0 right-0 border-t-2 border-r-2 rounded-tr-2xl",
+                "bottom-0 left-0 border-b-2 border-l-2 rounded-bl-2xl",
+                "bottom-0 right-0 border-b-2 border-r-2 rounded-br-2xl",
               ].map((cls, i) => (
-                <div
-                  key={i}
-                  className={`absolute w-5 h-5 ${cls}`}
-                  style={{ borderColor: "var(--yu-gold)" }}
-                />
+                <div key={i} className={`absolute w-6 h-6 ${cls}`} style={{ borderColor: "var(--brand)" }} />
               ))}
               {scanning && (
                 <div
-                  className="absolute left-0 right-0 h-0.5"
-                  style={{
-                    background: "var(--yu-gold)",
-                    top: "50%",
-                    animation: "none",
-                    boxShadow: "0 0 12px var(--yu-gold)",
-                  }}
+                  className="absolute left-2 right-2 h-0.5 rounded-full"
+                  style={{ background: "var(--brand)", top: "50%", boxShadow: "0 0 16px var(--brand)" }}
                 />
               )}
               {!scanning && (
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <p className="text-white/30 text-xs text-center">Point camera at<br/>student QR Pass</p>
+                  <Camera size={26} strokeWidth={1.5} color="rgba(255,255,255,0.2)" />
                 </div>
               )}
             </div>
           </div>
-          <div className="absolute bottom-4 left-0 right-0 text-center">
-            <p className="text-white/40 text-xs mono">
-              {scanning ? "SCANNING..." : "READY TO SCAN"}
+          <div className="absolute bottom-5 left-0 right-0 text-center">
+            <p className="text-[10.5px] mono font-bold uppercase tracking-widest" style={{ color: scanning ? "var(--brand)" : "rgba(255,255,255,0.3)" }}>
+              {scanning ? "Scanning…" : "Ready to scan"}
             </p>
           </div>
         </div>
-
-        <button
-          onClick={simulateScan}
-          disabled={scanning}
-          className="mx-6 mb-6 w-full py-3 rounded-xl font-bold text-sm transition-all hover:opacity-90"
-          style={{
-            background: scanning ? "rgba(255,255,255,0.12)" : "var(--yu-gold)",
-            color: scanning ? "rgba(255,255,255,0.4)" : "var(--yu-navy-dark)",
-            fontFamily: "'Plus Jakarta Sans', sans-serif",
-          }}
-        >
-          {scanning ? "Scanning..." : "Simulate Scan"}
-        </button>
+        <div className="w-full px-6 pb-6">
+          <Button variant="primary" size="lg" className="w-full" onClick={simulateScan} disabled={scanning} icon={ScanLine}>
+            {scanning ? "Scanning..." : "Simulate Scan"}
+          </Button>
+        </div>
       </div>
 
-      {/* Log */}
-      <div className="bg-white rounded-2xl border border-[var(--border)] p-5">
+      <Card>
         <div className="flex items-center justify-between mb-4">
-          <h3
-            className="font-bold text-sm"
-            style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-          >
-            Attendance Log
-          </h3>
-          <Badge label={`${scanned.length} checked in`} color="#1AA06D" />
+          <h3 className="font-display font-bold text-sm" style={{ color: "var(--text-primary)" }}>Attendance Log</h3>
+          <Badge label={`${scanned.length} checked in`} color="var(--success)" />
         </div>
         {scanned.length === 0 ? (
-          <p className="text-sm text-[var(--text-muted)] text-center py-6">No scans yet</p>
+          <EmptyState icon={ScanLine} title="No scans yet" body="Scanned passes will appear here in real time." />
         ) : (
           <div className="space-y-2">
             {scanned.map((id) => {
               const member = MEMBERS.find((m) => m.id_num === id)
               return (
-                <div key={id} className="flex items-center gap-3 p-2.5 rounded-xl" style={{ background: "#1AA06D11" }}>
-                  <div className="w-2 h-2 rounded-full shrink-0" style={{ background: "#1AA06D" }} />
-                  <p className="text-sm font-semibold flex-1" style={{ color: "var(--yu-navy)" }}>
-                    {member?.name ?? "Unknown"}
-                  </p>
-                  <p className="text-xs mono text-[var(--text-muted)]">{id}</p>
-                  <span className="text-xs text-[#1AA06D]">✓</span>
+                <div key={id} className="flex items-center gap-3 p-3 rounded-xl animate-fade-up" style={{ background: "var(--success-pale)" }}>
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "var(--success)" }} />
+                  <p className="text-sm font-semibold flex-1" style={{ color: "var(--text-primary)" }}>{member?.name ?? "Unknown"}</p>
+                  <p className="text-xs mono" style={{ color: "var(--text-muted)" }}>{id}</p>
+                  <Check size={14} strokeWidth={2.5} color="var(--success)" />
                 </div>
               )
             })}
           </div>
         )}
-      </div>
+      </Card>
     </div>
   )
 }
@@ -2097,73 +1864,57 @@ function MembersView() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2
-          className="text-xl font-bold mb-1"
-          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-        >
-          Member Management
-        </h2>
-        <p className="text-sm text-[var(--text-secondary)]">142 total members · Google Developer Student Club</p>
-      </div>
+      <SectionHeader title="Member Management" subtitle="142 total members · Google Developer Student Club" />
 
-      <div className="bg-white rounded-2xl border border-[var(--border)] overflow-hidden">
+      <Card padding="p-0" className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr style={{ background: "var(--surface)", borderBottom: "1px solid var(--border)" }}>
+              <tr style={{ background: "var(--surface-sunken)", borderBottom: "1px solid var(--border)" }}>
                 {["Member", "ID", "Attendance", "Joined", "Status", "Actions"].map((h) => (
-                  <th
-                    key={h}
-                    className="text-left px-5 py-3 text-xs font-semibold mono"
-                    style={{ color: "var(--text-muted)" }}
-                  >
+                  <th key={h} className="text-left px-6 py-3.5 text-[10.5px] font-bold mono uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
                     {h}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {members.map((m, i) => (
-                <tr
-                  key={m.id}
-                  className="border-b transition-all hover:bg-[var(--surface)]"
-                  style={{ borderColor: "var(--border)" }}
-                >
-                  <td className="px-5 py-3.5">
+              {members.map((m) => (
+                <tr key={m.id} className="border-b transition-colors duration-200 hover:bg-[var(--surface-sunken)]" style={{ borderColor: "var(--border)" }}>
+                  <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <Avatar name={m.name} size={32} />
-                      <span className="font-semibold" style={{ color: "var(--yu-navy)" }}>{m.name}</span>
+                      <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{m.name}</span>
                     </div>
                   </td>
-                  <td className="px-5 py-3.5 mono text-xs text-[var(--text-muted)]">{m.id_num}</td>
-                  <td className="px-5 py-3.5">
-                    <div className="flex items-center gap-2">
-                      <ProgressBar value={m.attendance} max={10} color="var(--yu-navy)" />
-                      <span className="text-xs mono text-[var(--text-muted)] shrink-0">{m.attendance}/10</span>
+                  <td className="px-6 py-4 mono text-xs" style={{ color: "var(--text-muted)" }}>{m.id_num}</td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2.5 max-w-[140px]">
+                      <ProgressBar value={m.attendance} max={10} />
+                      <span className="text-xs mono shrink-0" style={{ color: "var(--text-muted)" }}>{m.attendance}/10</span>
                     </div>
                   </td>
-                  <td className="px-5 py-3.5 text-xs text-[var(--text-muted)]">{m.joined}</td>
-                  <td className="px-5 py-3.5">
+                  <td className="px-6 py-4 text-xs" style={{ color: "var(--text-muted)" }}>{m.joined}</td>
+                  <td className="px-6 py-4">
                     <Badge
                       label={m.status}
-                      color={m.status === "active" ? "#1AA06D" : m.status === "pending" ? "var(--warning)" : "var(--text-muted)"}
+                      color={m.status === "active" ? "var(--success)" : m.status === "pending" ? "var(--warning)" : "var(--text-muted)"}
                     />
                   </td>
-                  <td className="px-5 py-3.5">
-                    <div className="flex gap-2">
+                  <td className="px-6 py-4">
+                    <div className="flex gap-3">
                       {m.status === "pending" && (
                         <button
-                          className="text-xs font-bold text-[#1AA06D] hover:underline"
-                          onClick={() =>
-                            setMembers((prev) => prev.map((mem) => mem.id === m.id ? { ...mem, status: "active" } : mem))
-                          }
+                          className="text-xs font-bold hover:underline"
+                          style={{ color: "var(--success)" }}
+                          onClick={() => setMembers((prev) => prev.map((mem) => mem.id === m.id ? { ...mem, status: "active" } : mem))}
                         >
                           Approve
                         </button>
                       )}
                       <button
-                        className="text-xs font-bold text-[var(--danger)] hover:underline"
+                        className="text-xs font-bold hover:underline"
+                        style={{ color: "var(--danger)" }}
                         onClick={() => setMembers((prev) => prev.filter((mem) => mem.id !== m.id))}
                       >
                         Remove
@@ -2175,7 +1926,7 @@ function MembersView() {
             </tbody>
           </table>
         </div>
-      </div>
+      </Card>
     </div>
   )
 }
@@ -2184,98 +1935,56 @@ function MembersView() {
 function ApprovalsView() {
   const [approvals, setApprovals] = useState(PENDING_APPROVALS)
   const [feedback, setFeedback] = useState<Record<number, string>>({})
-  const [modal, setModal] = useState<number | null>(null)
 
-  const approve = (id: number) => {
-    setApprovals((prev) => prev.map((a) => (a.id === id ? { ...a, status: "approved" } : a)))
-    setModal(null)
-  }
-
-  const requestChanges = (id: number) => {
-    setApprovals((prev) => prev.map((a) => (a.id === id ? { ...a, status: "changes-requested" } : a)))
-    setModal(null)
-  }
+  const approve = (id: number) => setApprovals((prev) => prev.map((a) => (a.id === id ? { ...a, status: "approved" } : a)))
+  const requestChanges = (id: number) => setApprovals((prev) => prev.map((a) => (a.id === id ? { ...a, status: "changes-requested" } : a)))
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2
-          className="text-xl font-bold mb-1"
-          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-        >
-          Oversight & Approvals
-        </h2>
-        <p className="text-sm text-[var(--text-secondary)]">Review club event and budget proposals.</p>
-      </div>
+      <SectionHeader title="Oversight & Approvals" subtitle="Review club event and budget proposals." />
 
       <div className="space-y-4">
-        {approvals.map((a) => {
+        {approvals.map((a, i) => {
           const statusColors: Record<string, string> = {
             pending: "var(--warning)",
-            approved: "#1AA06D",
+            approved: "var(--success)",
             "changes-requested": "var(--danger)",
           }
           return (
-            <div key={a.id} className="bg-white rounded-2xl border border-[var(--border)] p-5">
-              <div className="flex items-start justify-between gap-4 mb-3">
+            <Card key={a.id} className="animate-fade-up" style={{ animationDelay: `${i * 50}ms` }}>
+              <div className="flex items-start justify-between gap-4 mb-3.5">
                 <div>
-                  <p
-                    className="font-bold text-base"
-                    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-                  >
-                    {a.title}
-                  </p>
-                  <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                    {a.club} · Submitted by {a.submittedBy} · {a.date}
-                  </p>
+                  <p className="font-display font-bold text-[15px]" style={{ color: "var(--text-primary)" }}>{a.title}</p>
+                  <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{a.club} · Submitted by {a.submittedBy} · {a.date}</p>
                 </div>
                 <div className="flex gap-2 shrink-0 flex-wrap justify-end">
-                  <Badge label={a.type} color="#3B7DD8" />
-                  <Badge label={a.vision2030} color="#1AA06D" />
+                  <Badge label={a.type} color="var(--info)" />
+                  <Badge label={a.vision2030} color="var(--success)" />
                   <Badge label={a.status} color={statusColors[a.status]} />
                 </div>
               </div>
 
-              {a.status === "pending" && (
+              {a.status === "pending" ? (
                 <>
-                  <div className="mb-3">
-                    <textarea
-                      rows={2}
-                      placeholder="Add feedback notes (optional)..."
-                      value={feedback[a.id] || ""}
-                      onChange={(e) => setFeedback((f) => ({ ...f, [a.id]: e.target.value }))}
-                      className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border resize-none"
-                      style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--text-primary)" }}
-                    />
-                  </div>
+                  <textarea
+                    rows={2}
+                    placeholder="Add feedback notes (optional)..."
+                    value={feedback[a.id] || ""}
+                    onChange={(e) => setFeedback((f) => ({ ...f, [a.id]: e.target.value }))}
+                    className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border resize-none mb-3.5 transition-all duration-200 focus:border-[var(--brand)]"
+                    style={{ borderColor: "var(--border)", background: "var(--surface-sunken)", color: "var(--text-primary)" }}
+                  />
                   <div className="flex gap-2">
-                    <button
-                      onClick={() => approve(a.id)}
-                      className="px-5 py-2 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
-                      style={{ background: "#1AA06D" }}
-                    >
-                      ✓ Approve
-                    </button>
-                    <button
-                      onClick={() => requestChanges(a.id)}
-                      className="px-5 py-2 rounded-xl text-sm font-bold transition-all hover:opacity-90"
-                      style={{ background: "var(--surface)", color: "var(--danger)", border: "1px solid var(--danger)" }}
-                    >
-                      Request Changes
-                    </button>
+                    <Button variant="primary" icon={Check} onClick={() => approve(a.id)}>Approve</Button>
+                    <Button variant="danger" icon={X} onClick={() => requestChanges(a.id)}>Request Changes</Button>
                   </div>
                 </>
-              )}
-
-              {a.status !== "pending" && (
-                <p
-                  className="text-sm font-semibold"
-                  style={{ color: statusColors[a.status] }}
-                >
-                  {a.status === "approved" ? "✓ Approved" : "⚠ Changes Requested"}
+              ) : (
+                <p className="text-sm font-semibold flex items-center gap-1.5" style={{ color: statusColors[a.status] }}>
+                  {a.status === "approved" ? <><CheckCircle2 size={15} strokeWidth={2.25} /> Approved</> : <><AlertTriangle size={15} strokeWidth={2.25} /> Changes Requested</>}
                 </p>
               )}
-            </div>
+            </Card>
           )
         })}
       </div>
@@ -2286,46 +1995,28 @@ function ApprovalsView() {
 function AdvisorAnalytics() {
   return (
     <div className="space-y-6">
-      <div>
-        <h2
-          className="text-xl font-bold mb-1"
-          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-        >
-          Club Performance Analytics
-        </h2>
-        <p className="text-sm text-[var(--text-secondary)]">Spring 2026 semester overview for supervised clubs.</p>
-      </div>
+      <SectionHeader title="Club Performance Analytics" subtitle="Spring 2026 semester overview for supervised clubs." />
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        <StatCard label="Supervised Clubs" value={3} icon="◎" accent="#7C3AED" />
-        <StatCard label="Events Approved" value={14} sub="This semester" icon="✓" accent="#1AA06D" />
-        <StatCard label="Students Reached" value="2,140" icon="◈" accent="#3B7DD8" />
+        <StatCard label="Supervised Clubs" value={3} icon={Users} accent="#8A63D6" />
+        <StatCard label="Events Approved" value={14} sub="This semester" icon={ClipboardCheck} accent="var(--success)" delay={40} />
+        <StatCard label="Students Reached" value="2,140" icon={GraduationCap} accent="var(--info)" delay={80} />
       </div>
 
       {CLUBS.slice(0, 3).map((club) => {
         const engagement = [78, 91, 65][club.id - 1] ?? 70
         return (
-          <div key={club.id} className="bg-white rounded-2xl border border-[var(--border)] p-5">
+          <Card key={club.id}>
             <div className="flex items-center justify-between mb-3">
-              <p
-                className="font-bold text-sm"
-                style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-              >
-                {club.name}
-              </p>
-              <span
-                className="text-lg font-extrabold mono"
-                style={{ color: engagement > 80 ? "#1AA06D" : "var(--warning)" }}
-              >
-                {engagement}%
-              </span>
+              <p className="font-display font-bold text-sm" style={{ color: "var(--text-primary)" }}>{club.name}</p>
+              <span className="text-lg font-extrabold mono" style={{ color: engagement > 80 ? "var(--success)" : "var(--warning)" }}>{engagement}%</span>
             </div>
-            <ProgressBar value={engagement} max={100} color={engagement > 80 ? "#1AA06D" : "var(--warning)"} />
-            <div className="flex gap-6 mt-3 text-xs text-[var(--text-muted)]">
+            <ProgressBar value={engagement} max={100} color={engagement > 80 ? "var(--success)" : "var(--warning)"} />
+            <div className="flex gap-6 mt-3 text-xs" style={{ color: "var(--text-muted)" }}>
               <span>{club.members} members</span>
               <span>4 events this semester</span>
             </div>
-          </div>
+          </Card>
         )
       })}
     </div>
@@ -2335,106 +2026,64 @@ function AdvisorAnalytics() {
 // ─── Committee views ──────────────────────────────────────────────────────────
 function MasterCalendar() {
   const days = Array.from({ length: 31 }, (_, i) => i + 1)
-  const eventDays: Record<number, string> = {
-    10: "#C9A84C", 15: "#7C3AED", 20: "#D94040", 28: "#3B7DD8", 3: "#1AA06D",
-  }
+  const eventDays: Record<number, boolean> = { 10: true, 15: true, 20: true, 28: true, 3: true }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2
-          className="text-xl font-bold mb-1"
-          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-        >
-          Master Event Calendar
-        </h2>
-        <p className="text-sm text-[var(--text-secondary)]">
-          University-wide event overview — prevents scheduling conflicts.
-        </p>
-      </div>
+      <SectionHeader title="Master Event Calendar" subtitle="University-wide event overview — prevents scheduling conflicts." />
 
-      {/* Calendar grid */}
-      <div className="bg-white rounded-2xl border border-[var(--border)] p-6">
+      <Card>
         <div className="flex items-center justify-between mb-5">
-          <h3
-            className="font-bold text-base"
-            style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-          >
-            August 2026
-          </h3>
-          <div className="flex gap-2">
-            <button className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: "var(--surface)" }}>
-              ‹
+          <h3 className="font-display font-bold text-[15px]" style={{ color: "var(--text-primary)" }}>August 2026</h3>
+          <div className="flex gap-1.5">
+            <button className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors duration-200 hover:bg-[var(--surface-sunken)]" style={{ color: "var(--text-secondary)" }}>
+              <ChevronLeft size={16} strokeWidth={2} />
             </button>
-            <button className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: "var(--surface)" }}>
-              ›
+            <button className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors duration-200 hover:bg-[var(--surface-sunken)]" style={{ color: "var(--text-secondary)" }}>
+              <ChevronRight size={16} strokeWidth={2} />
             </button>
           </div>
         </div>
 
         <div className="grid grid-cols-7 gap-1 mb-2">
           {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => (
-            <div key={d} className="text-center text-xs font-bold mono py-1" style={{ color: "var(--text-muted)" }}>
-              {d}
-            </div>
+            <div key={d} className="text-center text-xs font-bold mono py-1" style={{ color: "var(--text-muted)" }}>{d}</div>
           ))}
         </div>
         <div className="grid grid-cols-7 gap-1">
-          {/* Offset for Aug 1 being Saturday (index 6) */}
           {Array(6).fill(null).map((_, i) => <div key={`empty-${i}`} />)}
           {days.map((day) => {
             const hasEvent = eventDays[day]
             return (
               <div
                 key={day}
-                className="aspect-square flex items-center justify-center rounded-lg text-sm font-medium cursor-pointer transition-all hover:opacity-80 relative"
-                style={{
-                  background: hasEvent ? `${hasEvent}18` : "transparent",
-                  color: hasEvent ? hasEvent : "var(--text-primary)",
-                  fontWeight: hasEvent ? 700 : 400,
-                }}
+                className="aspect-square flex items-center justify-center rounded-lg text-sm font-medium cursor-pointer transition-all duration-150 hover:bg-[var(--surface-sunken)] relative"
+                style={{ color: hasEvent ? "var(--brand-700)" : "var(--text-primary)", fontWeight: hasEvent ? 700 : 400, background: hasEvent ? "var(--brand-50)" : "transparent" }}
               >
                 {day}
-                {hasEvent && (
-                  <div
-                    className="absolute bottom-1 w-1 h-1 rounded-full"
-                    style={{ background: hasEvent }}
-                  />
-                )}
+                {hasEvent && <div className="absolute bottom-1 w-1 h-1 rounded-full" style={{ background: "var(--brand)" }} />}
               </div>
             )
           })}
         </div>
-      </div>
+      </Card>
 
-      {/* All events list */}
       <div className="space-y-3">
-        <h3
-          className="font-bold text-base"
-          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-        >
-          All Scheduled Events
-        </h3>
+        <h3 className="font-display font-bold text-[15px]" style={{ color: "var(--text-primary)" }}>All Scheduled Events</h3>
         {EVENTS.map((ev) => (
-          <div
-            key={ev.id}
-            className="bg-white rounded-xl border border-[var(--border)] p-4 flex items-center gap-4"
-          >
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0"
-              style={{ background: ev.color }}
-            >
-              {ev.date.split(" ")[1].replace(",", "")}
+          <Card key={ev.id} padding="p-4" className="flex items-center gap-4">
+            <div className="font-display w-10 h-10 rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0" style={{ background: ev.color }}>
+              {ev.date.split(" ")[1]?.replace(",", "") ?? "—"}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm" style={{ color: "var(--yu-navy)" }}>{ev.title}</p>
-              <p className="text-xs text-[var(--text-muted)]">{ev.club} · {ev.location}</p>
+              <p className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{ev.title}</p>
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>{ev.club} · {ev.location}</p>
             </div>
             <div className="flex gap-2 shrink-0">
               <Badge label={ev.category} color={ev.color} />
-              <Badge label={ev.vision2030} color="#1AA06D" />
+              <Badge label={ev.vision2030} color="var(--success)" />
             </div>
-          </div>
+          </Card>
         ))}
       </div>
     </div>
@@ -2448,11 +2097,7 @@ function EventEvaluation() {
 
   const submitEval = (eventId: number) => {
     setEvents((prev) =>
-      prev.map((e) =>
-        e.id === eventId
-          ? { ...e, scores: { ...tempScores } as typeof e.scores, evaluated: true }
-          : e
-      )
+      prev.map((e) => (e.id === eventId ? { ...e, scores: { ...tempScores } as typeof e.scores, evaluated: true } : e))
     )
     setActiveEvent(null)
     setTempScores({})
@@ -2460,15 +2105,7 @@ function EventEvaluation() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2
-          className="text-xl font-bold mb-1"
-          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-        >
-          Event Evaluation & Scoring
-        </h2>
-        <p className="text-sm text-[var(--text-secondary)]">Review and score completed events using the YU rubric.</p>
-      </div>
+      <SectionHeader title="Event Evaluation & Scoring" subtitle="Review and score completed events using the YU rubric." />
 
       <div className="space-y-4">
         {events.map((ev) => {
@@ -2476,70 +2113,48 @@ function EventEvaluation() {
           const attendPct = Math.round((ev.attendance / ev.capacity) * 100)
 
           return (
-            <div key={ev.id} className="bg-white rounded-2xl border border-[var(--border)] overflow-hidden">
+            <Card key={ev.id} padding="p-0" className="overflow-hidden">
               <div className="p-5">
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div>
-                    <p
-                      className="font-bold text-base"
-                      style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-                    >
-                      {ev.title}
-                    </p>
-                    <p className="text-xs text-[var(--text-muted)] mt-0.5">{ev.club} · {ev.date}</p>
+                    <p className="font-display font-bold text-[15px]" style={{ color: "var(--text-primary)" }}>{ev.title}</p>
+                    <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{ev.club} · {ev.date}</p>
                   </div>
-                  <Badge
-                    label={ev.evaluated ? "Evaluated" : "Pending Review"}
-                    color={ev.evaluated ? "#1AA06D" : "var(--warning)"}
-                  />
+                  <Badge label={ev.evaluated ? "Evaluated" : "Pending Review"} color={ev.evaluated ? "var(--success)" : "var(--warning)"} />
                 </div>
 
-                <div className="flex gap-6 text-sm mb-3">
-                  <div>
-                    <p className="text-xs text-[var(--text-muted)] mono">ATTENDANCE</p>
-                    <p className="font-bold" style={{ color: "var(--yu-navy)" }}>
-                      {ev.attendance} / {ev.capacity}
-                      <span className="text-xs ml-1 font-normal" style={{ color: attendPct > 85 ? "#1AA06D" : "var(--text-muted)" }}>
-                        ({attendPct}%)
-                      </span>
-                    </p>
-                  </div>
+                <div className="mb-3">
+                  <p className="text-[10.5px] mono uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>Attendance</p>
+                  <p className="font-bold" style={{ color: "var(--text-primary)" }}>
+                    {ev.attendance} / {ev.capacity}
+                    <span className="text-xs ml-1.5 font-normal" style={{ color: attendPct > 85 ? "var(--success)" : "var(--text-muted)" }}>({attendPct}%)</span>
+                  </p>
                 </div>
 
                 {ev.evaluated && !isActive && (
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
                     {Object.entries(ev.scores).map(([key, val]) => (
-                      <div key={key} className="text-center p-2 rounded-xl" style={{ background: "var(--surface)" }}>
-                        <p className="text-xs text-[var(--text-muted)] mono capitalize">{key}</p>
-                        <p className="font-bold text-lg" style={{ color: "var(--yu-gold)" }}>{val}/5</p>
+                      <div key={key} className="text-center p-2.5 rounded-xl" style={{ background: "var(--surface-sunken)" }}>
+                        <p className="text-xs mono capitalize" style={{ color: "var(--text-muted)" }}>{key}</p>
+                        <p className="font-bold text-lg" style={{ color: "var(--brand)" }}>{val}/5</p>
                       </div>
                     ))}
                   </div>
                 )}
 
                 {!ev.evaluated && !isActive && (
-                  <button
-                    onClick={() => {
-                      setActiveEvent(ev.id)
-                      setTempScores({ organization: 0, turnout: 0, impact: 0, creativity: 0 })
-                    }}
-                    className="px-5 py-2 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
-                    style={{ background: "var(--yu-navy)" }}
+                  <Button
+                    variant="primary"
+                    onClick={() => { setActiveEvent(ev.id); setTempScores({ organization: 0, turnout: 0, impact: 0, creativity: 0 }) }}
                   >
                     Start Evaluation
-                  </button>
+                  </Button>
                 )}
               </div>
 
-              {/* Scoring panel */}
               {isActive && (
-                <div className="border-t p-5" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
-                  <p
-                    className="font-bold text-sm mb-4"
-                    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-                  >
-                    Scoring Rubric
-                  </p>
+                <div className="p-5 border-t" style={{ borderColor: "var(--border)", background: "var(--surface-sunken)" }}>
+                  <p className="font-display font-bold text-sm mb-4" style={{ color: "var(--text-primary)" }}>Scoring Rubric</p>
                   <div className="space-y-4">
                     {[
                       { key: "organization", label: "Organization & Logistics" },
@@ -2548,35 +2163,18 @@ function EventEvaluation() {
                       { key: "creativity", label: "Creativity & Innovation" },
                     ].map((criterion) => (
                       <div key={criterion.key} className="flex items-center justify-between gap-4">
-                        <p className="text-sm font-medium flex-1" style={{ color: "var(--text-primary)" }}>
-                          {criterion.label}
-                        </p>
-                        <StarRating
-                          value={tempScores[criterion.key] ?? 0}
-                          onChange={(v) => setTempScores((s) => ({ ...s, [criterion.key]: v }))}
-                        />
+                        <p className="text-sm font-medium flex-1" style={{ color: "var(--text-primary)" }}>{criterion.label}</p>
+                        <StarRating value={tempScores[criterion.key] ?? 0} onChange={(v) => setTempScores((s) => ({ ...s, [criterion.key]: v }))} />
                       </div>
                     ))}
                   </div>
                   <div className="flex gap-2 mt-5">
-                    <button
-                      onClick={() => submitEval(ev.id)}
-                      className="px-5 py-2 rounded-xl text-sm font-bold text-white"
-                      style={{ background: "var(--yu-navy)" }}
-                    >
-                      Submit Evaluation
-                    </button>
-                    <button
-                      onClick={() => setActiveEvent(null)}
-                      className="px-5 py-2 rounded-xl text-sm font-semibold"
-                      style={{ background: "var(--border)", color: "var(--text-secondary)" }}
-                    >
-                      Cancel
-                    </button>
+                    <Button variant="primary" onClick={() => submitEval(ev.id)}>Submit Evaluation</Button>
+                    <Button variant="ghost" onClick={() => setActiveEvent(null)}>Cancel</Button>
                   </div>
                 </div>
               )}
-            </div>
+            </Card>
           )
         })}
       </div>
@@ -2586,105 +2184,58 @@ function EventEvaluation() {
 
 function CertificationsView() {
   const [issued, setIssued] = useState<number[]>([])
-
   const eligibleEvents = COMPLETED_EVENTS.filter((e) => e.evaluated)
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2
-          className="text-xl font-bold mb-1"
-          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-        >
-          Official Certification Generator
-        </h2>
-        <p className="text-sm text-[var(--text-secondary)]">
-          Issue recognition certificates to clubs for high-scoring events.
-        </p>
-      </div>
+      <SectionHeader title="Official Certification Generator" subtitle="Issue recognition certificates to clubs for high-scoring events." />
 
       {eligibleEvents.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-[var(--border)] p-10 text-center">
-          <p className="text-4xl mb-3">📋</p>
-          <p className="text-[var(--text-muted)] text-sm">
-            No evaluated events yet. Complete evaluations to unlock certifications.
-          </p>
-        </div>
+        <EmptyState icon={Medal} title="No evaluated events yet" body="Complete evaluations to unlock certifications." />
       ) : (
         eligibleEvents.map((ev) => {
           const avg = Object.values(ev.scores).reduce((s, v) => s + v, 0) / 4
           const isIssued = issued.includes(ev.id)
 
           return (
-            <div key={ev.id} className="bg-white rounded-2xl border border-[var(--border)] overflow-hidden">
+            <Card key={ev.id} padding="p-0" className="overflow-hidden">
               <div className="p-5 flex items-center gap-4">
-                <div
-                  className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shrink-0"
-                  style={{ background: "var(--yu-gold-pale)", color: "var(--yu-gold)" }}
-                >
-                  🏆
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0" style={{ background: "var(--brand-100)", color: "var(--brand-700)" }}>
+                  <Medal size={22} strokeWidth={2} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p
-                    className="font-bold text-sm"
-                    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-                  >
-                    {ev.title}
-                  </p>
-                  <p className="text-xs text-[var(--text-muted)]">{ev.club}</p>
+                  <p className="font-display font-bold text-[15px]" style={{ color: "var(--text-primary)" }}>{ev.title}</p>
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>{ev.club}</p>
                   <div className="flex items-center gap-2 mt-1">
                     <div className="flex">
                       {[1, 2, 3, 4, 5].map((s) => (
-                        <span key={s} className="text-sm" style={{ color: s <= avg ? "var(--yu-gold)" : "var(--border)" }}>
-                          ★
-                        </span>
+                        <Star key={s} size={13} strokeWidth={0} fill="currentColor" style={{ color: s <= avg ? "var(--brand)" : "var(--border-strong)" }} />
                       ))}
                     </div>
-                    <span className="text-xs mono text-[var(--text-muted)]">{avg.toFixed(1)} avg</span>
+                    <span className="text-xs mono" style={{ color: "var(--text-muted)" }}>{avg.toFixed(1)} avg</span>
                   </div>
                 </div>
-                <button
+                <Button
+                  variant={isIssued ? "secondary" : "primary"}
+                  icon={isIssued ? CheckCircle2 : Medal}
                   onClick={() => setIssued((prev) => (isIssued ? prev : [...prev, ev.id]))}
-                  className="px-5 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 shrink-0"
-                  style={{
-                    background: isIssued ? "#1AA06D18" : "var(--yu-gold)",
-                    color: isIssued ? "#1AA06D" : "var(--yu-navy-dark)",
-                    border: isIssued ? "1px solid #1AA06D40" : "none",
-                  }}
                 >
-                  {isIssued ? "✓ Certificate Issued" : "Issue Certificate"}
-                </button>
+                  {isIssued ? "Certificate Issued" : "Issue Certificate"}
+                </Button>
               </div>
 
               {isIssued && (
-                <div
-                  className="mx-5 mb-5 rounded-2xl p-6 text-center"
-                  style={{ background: "var(--yu-navy)", border: "2px solid var(--yu-gold)" }}
-                >
-                  <p className="text-[var(--yu-gold)] text-xs font-bold mono mb-1">CERTIFICATE OF EXCELLENCE</p>
-                  <p
-                    className="text-white text-lg font-bold"
-                    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-                  >
-                    Al Yamamah University
-                  </p>
-                  <p className="text-white/60 text-xs mt-1 mb-3">
-                    This certifies that
-                  </p>
-                  <p
-                    className="text-[var(--yu-gold)] text-xl font-extrabold"
-                    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-                  >
-                    {ev.club}
-                  </p>
-                  <p className="text-white/60 text-xs mt-1 mb-1">
-                    has successfully organized
-                  </p>
+                <div className="noise mx-5 mb-5 rounded-2xl p-7 text-center relative" style={{ background: "var(--gradient-ink)", border: "2px solid var(--brand)" }}>
+                  <p className="text-[10.5px] font-bold mono uppercase tracking-widest mb-1.5" style={{ color: "var(--brand)" }}>Certificate of Excellence</p>
+                  <p className="font-display text-white text-lg font-bold">Al Yamamah University</p>
+                  <p className="text-xs mt-1.5 mb-3" style={{ color: "rgba(255,255,255,0.5)" }}>This certifies that</p>
+                  <p className="font-display text-xl font-extrabold" style={{ color: "var(--brand)" }}>{ev.club}</p>
+                  <p className="text-xs mt-1.5 mb-1" style={{ color: "rgba(255,255,255,0.5)" }}>has successfully organized</p>
                   <p className="text-white font-semibold text-sm">{ev.title}</p>
-                  <p className="text-white/40 text-xs mt-3 mono">Issued by Student Affairs Committee · {new Date().toLocaleDateString()}</p>
+                  <p className="text-xs mt-4 mono" style={{ color: "rgba(255,255,255,0.3)" }}>Issued by Student Affairs Committee · {new Date().toLocaleDateString()}</p>
                 </div>
               )}
-            </div>
+            </Card>
           )
         })
       )}
@@ -2695,56 +2246,36 @@ function CertificationsView() {
 function CommitteeAnalytics() {
   return (
     <div className="space-y-6">
-      <div>
-        <h2
-          className="text-xl font-bold mb-1"
-          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-        >
-          University-Wide Analytics
-        </h2>
-        <p className="text-sm text-[var(--text-secondary)]">Student engagement and club activity across YU, Spring 2026.</p>
-      </div>
+      <SectionHeader title="University-Wide Analytics" subtitle="Student engagement and club activity across YU, Spring 2026." />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="Total Events" value={42} sub="This semester" icon="◈" accent="#3B7DD8" />
-        <StatCard label="Student Engagement" value="73%" sub="+8% vs last sem." icon="⬡" accent="var(--yu-gold)" />
-        <StatCard label="Active Clubs" value={18} sub="Out of 22 registered" icon="◎" accent="#7C3AED" />
-        <StatCard label="Attendance Rate" value="81%" sub="Avg. per event" icon="★" accent="#1AA06D" />
+        <StatCard label="Total Events" value={42} sub="This semester" icon={CalendarDays} accent="var(--info)" />
+        <StatCard label="Student Engagement" value="73%" sub="+8% vs last sem." icon={Sparkles} accent="var(--brand)" delay={40} />
+        <StatCard label="Active Clubs" value={18} sub="Out of 22 registered" icon={Users} accent="#8A63D6" delay={80} />
+        <StatCard label="Attendance Rate" value="81%" sub="Avg. per event" icon={TrendingUp} accent="var(--success)" delay={120} />
       </div>
 
-      {/* Vision 2030 breakdown */}
-      <div className="bg-white rounded-2xl border border-[var(--border)] p-6">
-        <h3
-          className="font-bold text-sm mb-4"
-          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-        >
-          Vision 2030 Event Alignment
-        </h3>
+      <Card>
+        <h3 className="font-display font-bold text-sm mb-4" style={{ color: "var(--text-primary)" }}>Vision 2030 Event Alignment</h3>
         <div className="space-y-4">
           {[
-            { pillar: "Innovation", count: 18, pct: 43, color: "#3B7DD8" },
-            { pillar: "Community Development", count: 14, pct: 33, color: "#7C3AED" },
-            { pillar: "Sustainability", count: 10, pct: 24, color: "#1AA06D" },
+            { pillar: "Innovation", count: 18, pct: 43, color: "var(--info)" },
+            { pillar: "Community Development", count: 14, pct: 33, color: "#8A63D6" },
+            { pillar: "Sustainability", count: 10, pct: 24, color: "var(--success)" },
           ].map((item) => (
             <div key={item.pillar}>
               <div className="flex justify-between text-sm mb-1.5">
-                <span className="font-semibold" style={{ color: "var(--yu-navy)" }}>{item.pillar}</span>
-                <span className="mono text-xs text-[var(--text-muted)]">{item.count} events · {item.pct}%</span>
+                <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{item.pillar}</span>
+                <span className="mono text-xs" style={{ color: "var(--text-muted)" }}>{item.count} events · {item.pct}%</span>
               </div>
               <ProgressBar value={item.pct} max={100} color={item.color} />
             </div>
           ))}
         </div>
-      </div>
+      </Card>
 
-      {/* Club leaderboard */}
-      <div className="bg-white rounded-2xl border border-[var(--border)] p-6">
-        <h3
-          className="font-bold text-sm mb-4"
-          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-        >
-          Club Engagement Leaderboard
-        </h3>
+      <Card>
+        <h3 className="font-display font-bold text-sm mb-4" style={{ color: "var(--text-primary)" }}>Club Engagement Leaderboard</h3>
         <div className="space-y-3">
           {[
             { rank: 1, name: "Google Developer Student Club", score: 94, members: 142 },
@@ -2756,58 +2287,50 @@ function CommitteeAnalytics() {
             <div key={club.rank} className="flex items-center gap-4">
               <span
                 className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                style={{
-                  background: club.rank <= 3 ? "var(--yu-gold-pale)" : "var(--surface)",
-                  color: club.rank <= 3 ? "var(--yu-gold)" : "var(--text-muted)",
-                }}
+                style={{ background: club.rank <= 3 ? "var(--brand-100)" : "var(--surface-sunken)", color: club.rank <= 3 ? "var(--brand-700)" : "var(--text-muted)" }}
               >
                 {club.rank}
               </span>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold truncate" style={{ color: "var(--yu-navy)" }}>
-                  {club.name}
-                </p>
-                <p className="text-xs text-[var(--text-muted)]">{club.members} members</p>
+                <p className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>{club.name}</p>
+                <p className="text-xs" style={{ color: "var(--text-muted)" }}>{club.members} members</p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <div className="w-24 h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full"
-                    style={{ width: `${club.score}%`, background: club.rank === 1 ? "var(--yu-gold)" : "var(--yu-navy)" }}
-                  />
+                <div className="w-24 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--surface-sunken)" }}>
+                  <div className="h-full rounded-full" style={{ width: `${club.score}%`, background: club.rank === 1 ? "var(--gradient-brand)" : "var(--ink)" }} />
                 </div>
-                <span className="mono text-xs font-bold" style={{ color: "var(--yu-navy)" }}>{club.score}</span>
+                <span className="mono text-xs font-bold" style={{ color: "var(--text-primary)" }}>{club.score}</span>
               </div>
             </div>
           ))}
         </div>
-      </div>
+      </Card>
     </div>
   )
 }
 
 // ─── Notifications (shared) ───────────────────────────────────────────────────
 function NotificationsView({ role }: { role: Role }) {
-  const notifsByRole: Record<Role, { icon: string; title: string; body: string; time: string; urgent: boolean }[]> = {
+  const notifsByRole: Record<Role, { icon: LucideIcon; title: string; body: string; time: string; urgent: boolean }[]> = {
     student: [
-      { icon: "◈", title: "Event Reminder", body: "Google Developer Summit starts in 2 days. You're registered!", time: "Just now", urgent: true },
-      { icon: "⬡", title: "YU Points Earned", body: "You earned 50 points for attending the Debate Workshop.", time: "3h ago", urgent: false },
-      { icon: "◎", title: "Club Update", body: "GDSC: New meeting scheduled for Monday 4PM at Lab B1.", time: "1d ago", urgent: false },
+      { icon: CalendarDays, title: "Event Reminder", body: "Google Developer Summit starts in 2 days. You're registered!", time: "Just now", urgent: true },
+      { icon: Sparkles, title: "YU Points Earned", body: "You earned 50 points for attending the Debate Workshop.", time: "3h ago", urgent: false },
+      { icon: Users, title: "Club Update", body: "GDSC: New meeting scheduled for Monday 4PM at Lab B1.", time: "1d ago", urgent: false },
     ],
     president: [
-      { icon: "✓", title: "Event Approved", body: "Your AI Workshop event was approved by Dr. Al-Harbi.", time: "1h ago", urgent: true },
-      { icon: "◎", title: "New Join Request", body: "3 new members requested to join your club.", time: "4h ago", urgent: false },
-      { icon: "◈", title: "Attendance Milestone", body: "Your club hit 90% attendance this week!", time: "2d ago", urgent: false },
+      { icon: CheckCircle2, title: "Event Approved", body: "Your AI Workshop event was approved by Dr. Al-Harbi.", time: "1h ago", urgent: true },
+      { icon: UserPlus, title: "New Join Request", body: "3 new members requested to join your club.", time: "4h ago", urgent: false },
+      { icon: TrendingUp, title: "Attendance Milestone", body: "Your club hit 90% attendance this week!", time: "2d ago", urgent: false },
     ],
     advisor: [
-      { icon: "◈", title: "New Proposal", body: "GDSC submitted a new event for your review.", time: "30m ago", urgent: true },
-      { icon: "★", title: "Budget Request", body: "Environmental Society submitted a SAR 2,400 budget request.", time: "2h ago", urgent: true },
-      { icon: "✓", title: "Report Ready", body: "Semester engagement report for your clubs is ready.", time: "1d ago", urgent: false },
+      { icon: ClipboardCheck, title: "New Proposal", body: "GDSC submitted a new event for your review.", time: "30m ago", urgent: true },
+      { icon: Wallet, title: "Budget Request", body: "Environmental Society submitted a SAR 2,400 budget request.", time: "2h ago", urgent: true },
+      { icon: CheckCircle2, title: "Report Ready", body: "Semester engagement report for your clubs is ready.", time: "1d ago", urgent: false },
     ],
     committee: [
-      { icon: "◈", title: "Scheduling Conflict", body: "Two events are overlapping on Aug 15 — review calendar.", time: "1h ago", urgent: true },
-      { icon: "★", title: "Evaluation Due", body: "3 events from July are pending your score.", time: "3h ago", urgent: true },
-      { icon: "◎", title: "Certification Issued", body: "Certificate issued to Environmental Society.", time: "2d ago", urgent: false },
+      { icon: AlertTriangle, title: "Scheduling Conflict", body: "Two events are overlapping on Aug 15 — review calendar.", time: "1h ago", urgent: true },
+      { icon: Star, title: "Evaluation Due", body: "3 events from July are pending your score.", time: "3h ago", urgent: true },
+      { icon: BadgeCheck, title: "Certification Issued", body: "Certificate issued to Environmental Society.", time: "2d ago", urgent: false },
     ],
   }
 
@@ -2815,42 +2338,25 @@ function NotificationsView({ role }: { role: Role }) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2
-          className="text-xl font-bold mb-1"
-          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-        >
-          Notifications
-        </h2>
-        <p className="text-sm text-[var(--text-secondary)]">
-          {notifs.filter((n) => n.urgent).length} urgent · {notifs.length} total
-        </p>
-      </div>
+      <SectionHeader title="Notifications" subtitle={`${notifs.filter((n) => n.urgent).length} urgent · ${notifs.length} total`} />
 
       <div className="space-y-3">
         {notifs.map((n, i) => (
-          <div
-            key={i}
-            className="bg-white rounded-2xl border p-5 flex gap-4 items-start"
-            style={{ borderColor: n.urgent ? "var(--yu-gold)" : "var(--border)" }}
-          >
+          <Card key={i} className="flex gap-4 items-start animate-fade-up" style={{ borderColor: n.urgent ? "var(--brand)" : "var(--border)", animationDelay: `${i * 50}ms` }}>
             <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center text-base shrink-0"
-              style={{
-                background: n.urgent ? "var(--yu-gold-pale)" : "var(--surface)",
-                color: n.urgent ? "var(--yu-gold)" : "var(--text-muted)",
-              }}
+              className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+              style={{ background: n.urgent ? "var(--brand-100)" : "var(--surface-sunken)", color: n.urgent ? "var(--brand-700)" : "var(--text-muted)" }}
             >
-              {n.icon}
+              <n.icon size={17} strokeWidth={2} />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2">
-                <p className="font-bold text-sm" style={{ color: "var(--yu-navy)" }}>{n.title}</p>
-                <span className="text-xs mono text-[var(--text-muted)] shrink-0">{n.time}</span>
+                <p className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>{n.title}</p>
+                <span className="text-xs mono shrink-0" style={{ color: "var(--text-muted)" }}>{n.time}</span>
               </div>
-              <p className="text-sm text-[var(--text-secondary)] mt-0.5">{n.body}</p>
+              <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>{n.body}</p>
             </div>
-          </div>
+          </Card>
         ))}
       </div>
     </div>
@@ -2936,53 +2442,51 @@ export default function App() {
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: "var(--surface)" }}>
-      <Sidebar
-        role={role}
-        currentView={view}
-        onNavigate={(v) => setView(v)}
-        onLogout={handleLogout}
-        userName={USER_NAMES[role]}
-      />
+      <Sidebar role={role} currentView={view} onNavigate={(v) => setView(v)} onLogout={handleLogout} userName={USER_NAMES[role]} />
 
       <main className="flex-1 overflow-y-auto">
         {/* Top bar */}
         <div
-          className="sticky top-0 z-10 px-8 py-4 border-b flex items-center justify-between"
-          style={{ background: "rgba(244,246,251,0.92)", borderColor: "var(--border)", backdropFilter: "blur(8px)" }}
+          className="glass sticky top-0 z-10 px-8 py-4 border-b flex items-center justify-between"
+          style={{ borderColor: "var(--border)" }}
         >
           <div>
-            <p className="text-xs font-semibold mono" style={{ color: "var(--text-muted)" }}>
+            <p className="text-[10.5px] font-bold mono uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
               {ROLE_LABELS[role].toUpperCase()}
             </p>
-            <h1
-              className="font-bold text-lg leading-tight"
-              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--yu-navy)" }}
-            >
+            <h1 className="font-display font-bold text-lg leading-tight" style={{ color: "var(--text-primary)" }}>
               {VIEW_TITLES[view] ?? view}
             </h1>
           </div>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setView("notifications")}
-              className="w-9 h-9 rounded-xl flex items-center justify-center text-base transition-all hover:opacity-70 relative"
-              style={{ background: "white", border: "1px solid var(--border)" }}
+              className="w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 hover:-translate-y-px relative bg-white border"
+              style={{ borderColor: "var(--border)", boxShadow: "var(--shadow-xs)" }}
             >
-              ◉
-              <div
-                className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full border-2"
-                style={{ background: "var(--danger)", borderColor: "white" }}
-              />
+              <Bell size={16} strokeWidth={2} color="var(--text-secondary)" />
+              <div className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full border-2" style={{ background: "var(--danger)", borderColor: "white" }} />
             </button>
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl" style={{ background: "white", border: "1px solid var(--border)" }}>
-              <Avatar name={USER_NAMES[role]} size={24} bg={ROLE_COLORS[role]} />
-              <span className="text-xs font-semibold" style={{ color: "var(--yu-navy)" }}>{USER_NAMES[role].split(" ")[0]}</span>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border" style={{ borderColor: "var(--border)", boxShadow: "var(--shadow-xs)" }}>
+              <Avatar name={USER_NAMES[role]} size={24} tone="brand" />
+              <span className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{USER_NAMES[role].split(" ")[0]}</span>
             </div>
           </div>
         </div>
 
         {/* Content */}
         <div className="p-8">
-          {renderView()}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={view}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            >
+              {renderView()}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </main>
     </div>
