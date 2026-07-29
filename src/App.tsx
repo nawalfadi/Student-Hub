@@ -15,6 +15,9 @@ import {
   ImagePlus, Camera, Ticket,
   ChevronLeft, ChevronRight,
   AlertTriangle, Wallet, Medal,
+  BookOpen, Scale, Target, Eye, History, Gavel, Gauge,
+  Trophy, HeartHandshake, Flame, FlaskConical, Handshake, Megaphone,
+  FileText, PenLine, Quote, ChevronDown,
 } from "lucide-react"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -27,6 +30,7 @@ type StudentView =
   | "clubs"
   | "notifications"
   | "rewards"
+  | "framework"
 
 type PresidentView =
   | "command"
@@ -34,8 +38,9 @@ type PresidentView =
   | "scanner"
   | "members"
   | "notifications"
+  | "framework"
 
-type AdvisorView = "approvals" | "analytics" | "notifications"
+type AdvisorView = "approvals" | "analytics" | "notifications" | "framework"
 
 type CommitteeView =
   | "calendar"
@@ -43,6 +48,7 @@ type CommitteeView =
   | "certifications"
   | "analytics"
   | "notifications"
+  | "framework"
 
 type View = StudentView | PresidentView | AdvisorView | CommitteeView
 
@@ -765,6 +771,7 @@ const NAV_ITEMS: Record<Role, { icon: LucideIcon; label: string; view: View }[]>
     { icon: QrCode, label: "My QR Pass", view: "qr-pass" },
     { icon: Users, label: "My Clubs", view: "clubs" },
     { icon: Sparkles, label: "Rewards", view: "rewards" },
+    { icon: BookOpen, label: "Club Framework", view: "framework" },
     { icon: Bell, label: "Notifications", view: "notifications" },
   ],
   president: [
@@ -772,11 +779,13 @@ const NAV_ITEMS: Record<Role, { icon: LucideIcon; label: string; view: View }[]>
     { icon: SquarePen, label: "Create Event", view: "create-event" },
     { icon: ScanLine, label: "QR Scanner", view: "scanner" },
     { icon: Users, label: "Members", view: "members" },
+    { icon: BookOpen, label: "Club Framework", view: "framework" },
     { icon: Bell, label: "Notifications", view: "notifications" },
   ],
   advisor: [
     { icon: ClipboardCheck, label: "Approvals", view: "approvals" },
     { icon: BarChart3, label: "Analytics", view: "analytics" },
+    { icon: BookOpen, label: "Club Framework", view: "framework" },
     { icon: Bell, label: "Notifications", view: "notifications" },
   ],
   committee: [
@@ -784,6 +793,7 @@ const NAV_ITEMS: Record<Role, { icon: LucideIcon; label: string; view: View }[]>
     { icon: Star, label: "Event Evaluation", view: "evaluation" },
     { icon: BadgeCheck, label: "Certifications", view: "certifications" },
     { icon: BarChart3, label: "Analytics", view: "analytics" },
+    { icon: BookOpen, label: "Club Framework", view: "framework" },
     { icon: Bell, label: "Notifications", view: "notifications" },
   ],
 }
@@ -2363,6 +2373,506 @@ function NotificationsView({ role }: { role: Role }) {
   )
 }
 
+// ─── Club Framework (governance, as an experience) ───────────────────────────
+function Reveal({
+  children,
+  delay = 0,
+  className = "",
+}: {
+  children: ReactNode
+  delay?: number
+  className?: string
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 18 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-80px" }}
+      transition={{ duration: 0.6, delay, ease: [0.16, 1, 0.3, 1] }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  )
+}
+
+function EyebrowLabel({ children }: { children: ReactNode }) {
+  return (
+    <p className="text-[10.5px] font-bold mono uppercase tracking-[0.2em]" style={{ color: "var(--brand)" }}>
+      {children}
+    </p>
+  )
+}
+
+const STAKEHOLDERS: {
+  role: Role
+  icon: LucideIcon
+  identity: string
+  color: string
+  summary: string
+  detail: string
+}[] = [
+  {
+    role: "president",
+    icon: Crown,
+    identity: "Owns the vision",
+    color: "#8A63D6",
+    summary: "Club Presidents",
+    detail: "Manage members, create events, and upload the evidence — photos, sign-in sheets, certificates — that every point is built on.",
+  },
+  {
+    role: "advisor",
+    icon: ShieldCheck,
+    identity: "Protects integrity",
+    color: "var(--success)",
+    summary: "Faculty Advisors",
+    detail: "Vet every submission before it counts. Verify the event happened, the attendees are real, and the evidence holds up — the first line of defense against fraud.",
+  },
+  {
+    role: "committee",
+    icon: Scale,
+    identity: "Ensures fairness",
+    color: "var(--info)",
+    summary: "Student Affairs",
+    detail: "Set the rules, confirm high-value points, and arbitrate disputes. The final word on anything that reaches the leaderboard.",
+  },
+  {
+    role: "student",
+    icon: Target,
+    identity: "Drives impact",
+    color: "var(--brand)",
+    summary: "Students",
+    detail: "Show up, join in, and check in. Every club's score is ultimately a reflection of real participation, not paperwork.",
+  },
+]
+
+function StakeholderCard({ s, delay }: { s: (typeof STAKEHOLDERS)[number]; delay: number }) {
+  return (
+    <Reveal delay={delay}>
+      <div
+        className="lift-hover rounded-[var(--r-xl)] p-7 h-full border relative overflow-hidden group"
+        style={{ borderColor: "var(--border)", background: "white", boxShadow: "var(--shadow-xs)" }}
+      >
+        <div
+          className="absolute -top-10 -right-10 w-32 h-32 rounded-full transition-transform duration-500 group-hover:scale-125"
+          style={{ background: tint(s.color, 14), filter: "blur(4px)" }}
+        />
+        <div className="relative z-10">
+          <div className="w-[52px] h-[52px] rounded-2xl flex items-center justify-center mb-5" style={{ background: tint(s.color, 13), color: s.color }}>
+            <s.icon size={23} strokeWidth={2} />
+          </div>
+          <p className="font-display font-extrabold text-[20px] leading-tight" style={{ color: "var(--text-primary)" }}>{s.identity}</p>
+          <p className="text-[11px] font-bold mono uppercase tracking-widest mt-1.5" style={{ color: s.color }}>{s.summary}</p>
+          <p className="text-sm mt-3.5 leading-relaxed" style={{ color: "var(--text-secondary)" }}>{s.detail}</p>
+        </div>
+      </div>
+    </Reveal>
+  )
+}
+
+const CATEGORIES: { icon: LucideIcon; name: string; weight?: number; color: string; blurb: string }[] = [
+  { icon: HeartHandshake, name: "Community & Service", weight: 20, color: "var(--success)", blurb: "Charity drives, volunteer projects" },
+  { icon: Flame, name: "Student Engagement", weight: 15, color: "var(--brand)", blurb: "Meetings, new members, social life" },
+  { icon: FlaskConical, name: "Innovation & Professional", weight: 25, color: "#8A63D6", blurb: "Competitions, hackathons, workshops" },
+  { icon: Handshake, name: "Collaboration", color: "var(--info)", blurb: "Joint events, external partnerships" },
+  { icon: Megaphone, name: "Media & Outreach", color: "var(--warning)", blurb: "Social reach, publications" },
+]
+
+function CategoryCard({ c, delay }: { c: (typeof CATEGORIES)[number]; delay: number }) {
+  return (
+    <Reveal delay={delay} className="h-full">
+      <div className="h-full rounded-[var(--r-lg)] border p-5 flex flex-col gap-3.5" style={{ borderColor: "var(--border)", background: "white", boxShadow: "var(--shadow-xs)" }}>
+        <div className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: tint(c.color, 12), color: c.color }}>
+          <c.icon size={19} strokeWidth={2} />
+        </div>
+        <div>
+          <p className="font-display font-bold text-[13.5px] leading-snug" style={{ color: "var(--text-primary)" }}>{c.name}</p>
+          <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{c.blurb}</p>
+        </div>
+        <div className="mt-auto pt-1">
+          {c.weight !== undefined ? (
+            <span className="inline-block text-xs font-bold mono px-2.5 py-1 rounded-full" style={{ background: tint(c.color, 13), color: c.color }}>
+              e.g. {c.weight}%
+            </span>
+          ) : (
+            <span className="inline-block text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ background: "var(--surface-sunken)", color: "var(--text-muted)" }}>
+              Set annually by Student Affairs
+            </span>
+          )}
+        </div>
+      </div>
+    </Reveal>
+  )
+}
+
+const APPROVAL_STAGES: { icon: LucideIcon; label: string; desc: string; color: string }[] = [
+  { icon: Crown, label: "Club President", desc: "Submits the event and its evidence", color: "#8A63D6" },
+  { icon: ShieldCheck, label: "Faculty Advisor", desc: "Verifies it actually happened", color: "var(--success)" },
+  { icon: Scale, label: "Student Affairs", desc: "Confirms points on high-value items", color: "var(--info)" },
+  { icon: Trophy, label: "Leaderboard", desc: "Points post, publicly and permanently", color: "var(--brand)" },
+]
+
+function ApprovalJourney() {
+  return (
+    <div>
+      <div className="relative">
+        <div className="absolute top-[26px] left-[12%] right-[12%] h-px hidden md:block" style={{ background: "var(--border)" }} />
+        <motion.div
+          className="absolute top-[26px] left-[12%] h-px hidden md:block origin-left"
+          style={{ background: "var(--gradient-brand)", right: "12%" }}
+          initial={{ scaleX: 0 }}
+          whileInView={{ scaleX: 1 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 1.3, ease: [0.16, 1, 0.3, 1] }}
+        />
+        <div className="relative grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-10">
+          {APPROVAL_STAGES.map((s, i) => (
+            <motion.div
+              key={s.label}
+              initial={{ opacity: 0, y: 16, scale: 0.9 }}
+              whileInView={{ opacity: 1, y: 0, scale: 1 }}
+              viewport={{ once: true, margin: "-80px" }}
+              transition={{ duration: 0.5, delay: i * 0.16, ease: [0.16, 1, 0.3, 1] }}
+              className="flex flex-col items-center text-center gap-3"
+            >
+              <div
+                className="w-14 h-14 rounded-full flex items-center justify-center relative z-10 shrink-0"
+                style={{ background: s.color, boxShadow: `0 0 0 6px var(--surface), var(--shadow-md)` }}
+              >
+                <s.icon size={22} strokeWidth={2} color="white" />
+              </div>
+              <div>
+                <p className="font-display font-bold text-[13px]" style={{ color: "var(--text-primary)" }}>{s.label}</p>
+                <p className="text-[11.5px] mt-1 leading-snug max-w-[9.5rem]" style={{ color: "var(--text-secondary)" }}>{s.desc}</p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+
+      <Reveal delay={0.5} className="mt-10">
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-full text-xs" style={{ background: "var(--surface-sunken)", color: "var(--text-secondary)" }}>
+            <PenLine size={13} strokeWidth={2} style={{ color: "var(--text-muted)" }} />
+            An Advisor can send an event back to the President for fixes
+          </div>
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-full text-xs" style={{ background: "var(--surface-sunken)", color: "var(--text-secondary)" }}>
+            <Gavel size={13} strokeWidth={2} style={{ color: "var(--text-muted)" }} />
+            Student Affairs can override or reject an Advisor's call
+          </div>
+        </div>
+      </Reveal>
+    </div>
+  )
+}
+
+function FormulaRing({ pct, label, sub, color, delay }: { pct: number; label: string; sub: string; color: string; delay: number }) {
+  const r = 42
+  const c = 2 * Math.PI * r
+  return (
+    <Reveal delay={delay} className="flex flex-col items-center">
+      <div className="relative w-[120px] h-[120px]">
+        <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+          <circle cx="50" cy="50" r={r} fill="none" stroke="var(--border)" strokeWidth="7" />
+          <motion.circle
+            cx="50" cy="50" r={r} fill="none" stroke={color} strokeWidth="7" strokeLinecap="round"
+            strokeDasharray={c}
+            initial={{ strokeDashoffset: c }}
+            whileInView={{ strokeDashoffset: c - (pct / 100) * c }}
+            viewport={{ once: true, margin: "-60px" }}
+            transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1], delay: delay + 0.15 }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="font-display text-2xl font-bold" style={{ color: "var(--text-primary)" }}>{pct}%</span>
+        </div>
+      </div>
+      <p className="font-display font-bold text-sm mt-3.5" style={{ color: "var(--text-primary)" }}>{label}</p>
+      <p className="text-xs text-center mt-1 max-w-[10rem] leading-relaxed" style={{ color: "var(--text-secondary)" }}>{sub}</p>
+    </Reveal>
+  )
+}
+
+function GuardrailCard({ icon: Icon, title, body, delay }: { icon: LucideIcon; title: string; body: string; delay: number }) {
+  return (
+    <Reveal delay={delay} className="h-full">
+      <div className="h-full rounded-[var(--r-lg)] border p-6" style={{ borderColor: "var(--border)", background: "white", boxShadow: "var(--shadow-xs)" }}>
+        <div className="w-11 h-11 rounded-2xl flex items-center justify-center mb-4" style={{ background: "var(--surface-sunken)", color: "var(--text-primary)" }}>
+          <Icon size={19} strokeWidth={2} />
+        </div>
+        <p className="font-display font-bold text-[14.5px] mb-2" style={{ color: "var(--text-primary)" }}>{title}</p>
+        <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>{body}</p>
+      </div>
+    </Reveal>
+  )
+}
+
+const AUDIT_FEED = [
+  { actor: "Ahmed Al-Zahrani", role: "President", action: "submitted evidence for AI & Machine Learning Workshop", time: "2m ago" },
+  { actor: "Dr. Khalid Al-Harbi", role: "Advisor", action: "approved Sustainability Design Hackathon", time: "1h ago" },
+  { actor: "Eng. Noura Al-Dosari", role: "Student Affairs", action: "confirmed points for Tech Talk: Web3 & Saudi Vision", time: "3h ago" },
+  { actor: "System", role: "Audit", action: "flagged a duplicate check-in for review", time: "Yesterday" },
+]
+
+const ROLE_FRAMEWORK_CTA: Record<Role, { label: string; view: View }> = {
+  student: { label: "Explore Events", view: "events" },
+  president: { label: "Create Your Next Event", view: "create-event" },
+  advisor: { label: "Review Pending Approvals", view: "approvals" },
+  committee: { label: "View the Leaderboard", view: "analytics" },
+}
+
+function ClubFramework({ role, onNavigate }: { role: Role; onNavigate: (v: View) => void }) {
+  const cta = ROLE_FRAMEWORK_CTA[role]
+
+  return (
+    <div className="max-w-5xl mx-auto space-y-24 pb-8">
+      {/* Hero */}
+      <div className="noise rounded-[var(--r-2xl)] overflow-hidden relative" style={{ minHeight: 420, background: "var(--gradient-hero)" }}>
+        <div className="animate-float absolute w-[420px] h-[420px] rounded-full pointer-events-none" style={{ background: "var(--brand)", opacity: 0.16, filter: "blur(120px)", top: "-10%", left: "-6%" }} />
+        <div className="absolute w-[320px] h-[320px] rounded-full pointer-events-none" style={{ background: "#8A63D6", opacity: 0.1, filter: "blur(120px)", bottom: "-8%", right: "4%" }} />
+        <div className="relative z-10 min-h-[420px] flex flex-col items-center justify-center text-center px-8 py-16">
+          <Reveal>
+            <p className="text-[10.5px] font-bold mono uppercase tracking-[0.25em] mb-4" style={{ color: "var(--brand)" }}>The Club Framework</p>
+          </Reveal>
+          <Reveal delay={0.08}>
+            <h1 className="font-display text-[44px] md:text-[56px] font-extrabold text-white leading-[1.05] max-w-3xl">
+              How great clubs<br />
+              <span style={{ background: "var(--gradient-brand)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>are built.</span>
+            </h1>
+          </Reveal>
+          <Reveal delay={0.18}>
+            <p className="text-[16px] mt-6 max-w-xl leading-relaxed" style={{ color: "rgba(255,255,255,0.55)" }}>
+              Every point on this platform is earned, evidenced, and reviewed. This is the governance behind
+              the leaderboard — how it works, and why you can trust it.
+            </p>
+          </Reveal>
+          <Reveal delay={0.3} className="mt-10 flex items-center gap-2" >
+            <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>Scroll to explore</span>
+            <motion.span animate={{ y: [0, 5, 0] }} transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}>
+              <ChevronDown size={15} strokeWidth={2.5} color="var(--brand)" />
+            </motion.span>
+          </Reveal>
+        </div>
+      </div>
+
+      {/* Why this exists */}
+      <div className="text-center max-w-2xl mx-auto">
+        <Reveal><EyebrowLabel>Why this exists</EyebrowLabel></Reveal>
+        <Reveal delay={0.08}>
+          <p className="font-display text-[26px] md:text-[30px] font-bold mt-3 leading-tight" style={{ color: "var(--text-primary)" }}>
+            Not a spreadsheet of points.<br />A system you can actually trust.
+          </p>
+        </Reveal>
+        <Reveal delay={0.16}>
+          <p className="text-[15px] mt-5 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+            Clubs are scored on participation and impact — not who fills out the most forms. Every category is
+            weighted on purpose, every point has proof attached, and every approval leaves a trail.
+          </p>
+        </Reveal>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-10 text-left">
+          {[
+            { icon: Eye, label: "Transparent", body: "Rules and scores are public — nothing about ranking is a black box." },
+            { icon: FileText, label: "Evidence-based", body: "No proof, no points. Sign-in sheets, photos, reports — always attached." },
+            { icon: Scale, label: "Fair by design", body: "Weighted categories and caps mean no club wins by gaming one thing." },
+          ].map((p, i) => (
+            <Reveal key={p.label} delay={0.1 * i} className="h-full">
+              <div className="h-full rounded-[var(--r-lg)] border p-5" style={{ borderColor: "var(--border)", background: "white", boxShadow: "var(--shadow-xs)" }}>
+                <p.icon size={18} strokeWidth={2} style={{ color: "var(--brand)" }} />
+                <p className="font-display font-bold text-sm mt-3" style={{ color: "var(--text-primary)" }}>{p.label}</p>
+                <p className="text-xs mt-1.5 leading-relaxed" style={{ color: "var(--text-secondary)" }}>{p.body}</p>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </div>
+
+      {/* Stakeholders */}
+      <div>
+        <div className="text-center max-w-xl mx-auto mb-10">
+          <Reveal><EyebrowLabel>Meet the stakeholders</EyebrowLabel></Reveal>
+          <Reveal delay={0.08}>
+            <p className="font-display text-[26px] md:text-[30px] font-bold mt-3" style={{ color: "var(--text-primary)" }}>Four roles. One shared scoreboard.</p>
+          </Reveal>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {STAKEHOLDERS.map((s, i) => <StakeholderCard key={s.role} s={s} delay={i * 0.1} />)}
+        </div>
+      </div>
+
+      {/* Categories & weights */}
+      <div>
+        <div className="text-center max-w-xl mx-auto mb-10">
+          <Reveal><EyebrowLabel>How points move</EyebrowLabel></Reveal>
+          <Reveal delay={0.08}>
+            <p className="font-display text-[26px] md:text-[30px] font-bold mt-3" style={{ color: "var(--text-primary)" }}>Five categories, weighted on purpose.</p>
+          </Reveal>
+          <Reveal delay={0.16}>
+            <p className="text-[15px] mt-4 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+              Every activity earns points in one of five categories. Student Affairs sets the weights each year —
+              the split shown here is illustrative.
+            </p>
+          </Reveal>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          {CATEGORIES.map((c, i) => <CategoryCard key={c.name} c={c} delay={i * 0.08} />)}
+        </div>
+      </div>
+
+      {/* Approval journey */}
+      <div>
+        <div className="text-center max-w-xl mx-auto mb-14">
+          <Reveal><EyebrowLabel>The approval journey</EyebrowLabel></Reveal>
+          <Reveal delay={0.08}>
+            <p className="font-display text-[26px] md:text-[30px] font-bold mt-3" style={{ color: "var(--text-primary)" }}>Nothing scores itself.</p>
+          </Reveal>
+          <Reveal delay={0.16}>
+            <p className="text-[15px] mt-4 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+              Every event follows the same chain of custody, from the ground up to the leaderboard.
+            </p>
+          </Reveal>
+        </div>
+        <ApprovalJourney />
+      </div>
+
+      {/* Scoring principles */}
+      <div>
+        <div className="text-center max-w-2xl mx-auto mb-4">
+          <Reveal><EyebrowLabel>Scoring principles</EyebrowLabel></Reveal>
+          <Reveal delay={0.08} className="mt-4">
+            <div className="flex items-start justify-center gap-3">
+              <Quote size={22} strokeWidth={2} style={{ color: "var(--brand)" }} className="shrink-0 mt-1" />
+              <p className="font-display text-[24px] md:text-[28px] font-bold leading-tight text-left" style={{ color: "var(--text-primary)" }}>
+                It's not how many events you run.<br />It's how well you run them.
+              </p>
+            </div>
+          </Reveal>
+        </div>
+        <Reveal delay={0.16} className="text-center max-w-lg mx-auto">
+          <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+            Base points assume the basics are met. The final score multiplies them by three quality signals —
+            so a well-run event always beats a well-attended one on paper.
+          </p>
+        </Reveal>
+        <div className="flex flex-wrap items-center justify-center gap-10 md:gap-16 mt-10">
+          <FormulaRing pct={40} label="Attendance Rate" sub="Actual turnout vs. registered" color="var(--info)" delay={0} />
+          <FormulaRing pct={30} label="Feedback Score" sub="Attendee ratings, 1–5 stars" color="var(--brand)" delay={0.12} />
+          <FormulaRing pct={30} label="Evidence Quality" sub="Photos, reports on file" color="var(--success)" delay={0.24} />
+        </div>
+        <Reveal delay={0.4} className="mt-10 max-w-lg mx-auto text-center">
+          <div className="rounded-[var(--r-lg)] p-5 border" style={{ borderColor: "var(--border)", background: "var(--surface-sunken)" }}>
+            <p className="text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
+              A workshop with <span className="font-bold">90%+ turnout</span> and a <span className="font-bold">4.5/5 rating</span> earns
+              roughly <span className="font-bold" style={{ color: "var(--brand)" }}>90% of its base points</span>. Ghost attendance doesn't.
+            </p>
+          </div>
+        </Reveal>
+      </div>
+
+      {/* Guardrails */}
+      <div>
+        <div className="text-center max-w-xl mx-auto mb-10">
+          <Reveal><EyebrowLabel>Guardrails</EyebrowLabel></Reveal>
+          <Reveal delay={0.08}>
+            <p className="font-display text-[26px] md:text-[30px] font-bold mt-3" style={{ color: "var(--text-primary)" }}>Built so no one can game it.</p>
+          </Reveal>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <GuardrailCard
+            icon={Gauge}
+            title="Caps per category"
+            body="Points are capped per category, per term — so no club wins Club of the Year by spamming one activity type."
+            delay={0}
+          />
+          <GuardrailCard
+            icon={FileText}
+            title="Proof required"
+            body="Sign-in sheets, photos, certificates, reports, receipts. Every claim needs documentation before it's reviewed."
+            delay={0.1}
+          />
+          <GuardrailCard
+            icon={Scale}
+            title="Approval scales with stakes"
+            body="Routine items clear with your Advisor. Major events and competition wins get a second look from Student Affairs."
+            delay={0.2}
+          />
+        </div>
+      </div>
+
+      {/* Transparency & audit trail */}
+      <div>
+        <div className="grid md:grid-cols-2 gap-10 items-center">
+          <div>
+            <Reveal><EyebrowLabel>Transparency & appeals</EyebrowLabel></Reveal>
+            <Reveal delay={0.08}>
+              <p className="font-display text-[26px] md:text-[30px] font-bold mt-3 leading-tight" style={{ color: "var(--text-primary)" }}>
+                Nothing happens quietly.
+              </p>
+            </Reveal>
+            <Reveal delay={0.16}>
+              <p className="text-[15px] mt-4 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                Every submission, approval, rejection, and score change is logged — who did what, and when.
+                If something looks wrong, clubs can appeal: re-upload evidence, or ask an Advisor to take
+                another look.
+              </p>
+            </Reveal>
+            <Reveal delay={0.24} className="flex gap-3 mt-6">
+              <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
+                <History size={14} strokeWidth={2} style={{ color: "var(--brand)" }} /> Full audit trail
+              </div>
+              <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
+                <Gavel size={14} strokeWidth={2} style={{ color: "var(--brand)" }} /> Appeals process
+              </div>
+            </Reveal>
+          </div>
+          <Reveal delay={0.15}>
+            <div className="rounded-[var(--r-xl)] border p-2" style={{ borderColor: "var(--border)", background: "white", boxShadow: "var(--shadow-md)" }}>
+              <div className="space-y-1.5 p-3">
+                {AUDIT_FEED.map((e, i) => (
+                  <div key={i} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "var(--surface-sunken)" }}>
+                    <span className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 animate-pulse-dot" style={{ background: "var(--brand)" }} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs leading-relaxed" style={{ color: "var(--text-primary)" }}>
+                        <span className="font-bold">{e.actor}</span>{" "}
+                        <span style={{ color: "var(--text-muted)" }}>({e.role})</span>{" "}
+                        <span style={{ color: "var(--text-secondary)" }}>{e.action}</span>
+                      </p>
+                    </div>
+                    <span className="text-[10.5px] mono shrink-0" style={{ color: "var(--text-muted)" }}>{e.time}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Reveal>
+        </div>
+      </div>
+
+      {/* Closing */}
+      <div className="noise rounded-[var(--r-2xl)] overflow-hidden relative text-center" style={{ background: "var(--gradient-ink)" }}>
+        <div className="relative z-10 px-8 py-16 flex flex-col items-center">
+          <Reveal>
+            <Trophy size={30} strokeWidth={2} color="var(--brand)" />
+          </Reveal>
+          <Reveal delay={0.1}>
+            <p className="font-display text-[28px] md:text-[32px] font-bold text-white mt-5 max-w-lg leading-tight">
+              Every point earned is a step toward Club of the Year.
+            </p>
+          </Reveal>
+          <Reveal delay={0.2}>
+            <p className="text-sm mt-4 max-w-md" style={{ color: "rgba(255,255,255,0.5)" }}>
+              Transparent scoring. Real evidence. A shared scoreboard everyone can trust.
+            </p>
+          </Reveal>
+          <Reveal delay={0.3} className="mt-8">
+            <Button variant="primary" size="lg" icon={ArrowRight} iconPosition="right" onClick={() => onNavigate(cta.view)}>
+              {cta.label}
+            </Button>
+          </Reveal>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main app shell ───────────────────────────────────────────────────────────
 const USER_NAMES: Record<Role, string> = {
   student: "Sarah Al-Mutairi",
@@ -2394,6 +2904,7 @@ const VIEW_TITLES: Record<string, string> = {
   calendar: "Master Calendar",
   evaluation: "Event Evaluation",
   certifications: "Certifications",
+  framework: "Club Framework",
 }
 
 export default function App() {
@@ -2436,6 +2947,7 @@ export default function App() {
     if (view === "certifications") return <CertificationsView />
     if (view === "analytics" && role === "committee") return <CommitteeAnalytics />
     // Shared
+    if (view === "framework") return <ClubFramework role={role} onNavigate={setView} />
     if (view === "notifications") return <NotificationsView role={role} />
     return null
   }
