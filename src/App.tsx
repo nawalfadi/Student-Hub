@@ -1,4 +1,4 @@
-import { useState, useEffect, type Dispatch, type SetStateAction, type ReactNode, type CSSProperties, type ButtonHTMLAttributes } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef, createContext, useContext, type Dispatch, type SetStateAction, type ReactNode, type CSSProperties, type ButtonHTMLAttributes } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import type { LucideIcon } from "lucide-react"
 import yuLogoWhite from "./assets/yu-logo-white.png"
@@ -18,10 +18,63 @@ import {
   BookOpen, Scale, Target, Eye, History, Gavel, Gauge,
   Trophy, HeartHandshake, Flame, FlaskConical, Handshake, Megaphone,
   FileText, PenLine, Quote, ChevronDown,
+  Sun, Moon,
 } from "lucide-react"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type Role = "student" | "president" | "advisor" | "committee"
+type Theme = "light" | "dark"
+
+const THEME_KEY = "yu-theme"
+
+function applyTheme(theme: Theme) {
+  document.documentElement.classList.toggle("dark", theme === "dark")
+  document.documentElement.style.colorScheme = theme
+  try { localStorage.setItem(THEME_KEY, theme) } catch { /* ignore */ }
+}
+
+function useTheme() {
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof document !== "undefined") {
+      return document.documentElement.classList.contains("dark") ? "dark" : "light"
+    }
+    return "dark"
+  })
+
+  useEffect(() => {
+    applyTheme(theme)
+  }, [theme])
+
+  const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"))
+
+  return { theme, toggleTheme }
+}
+
+function ThemeToggle({
+  theme,
+  onToggle,
+  className = "",
+  style,
+}: {
+  theme: Theme
+  onToggle: () => void
+  className?: string
+  style?: CSSProperties
+}) {
+  const isDark = theme === "dark"
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      title={isDark ? "Light mode" : "Dark mode"}
+      className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 hover:-translate-y-px bg-[var(--card)] border ${className}`}
+      style={{ borderColor: "var(--border)", boxShadow: "var(--shadow-xs)", color: "var(--text-secondary)", ...style }}
+    >
+      {isDark ? <Sun size={16} strokeWidth={2} /> : <Moon size={16} strokeWidth={2} />}
+    </button>
+  )
+}
 
 type StudentView =
   | "feed"
@@ -44,6 +97,7 @@ type AdvisorView = "approvals" | "analytics" | "notifications" | "framework"
 
 type CommitteeView =
   | "calendar"
+  | "event-approvals"
   | "evaluation"
   | "certifications"
   | "analytics"
@@ -51,6 +105,86 @@ type CommitteeView =
   | "framework"
 
 type View = StudentView | PresidentView | AdvisorView | CommitteeView
+
+type EventApprovalStatus =
+  | "pending_advisor"
+  | "pending_sa"
+  | "published"
+  | "denied"
+
+type HubEvent = {
+  id: number
+  title: string
+  desc: string
+  club: string
+  submittedBy: string
+  date: string
+  time: string
+  location: string
+  requirements: string
+  category: string
+  capacity: number
+  registered: number
+  vision2030: string
+  image: string
+  color: string
+  status: EventApprovalStatus
+  denialReason?: string
+  advisorNote?: string
+}
+
+type AppNotification = {
+  id: number
+  role: Role
+  icon: LucideIcon
+  title: string
+  body: string
+  time: string
+  urgent: boolean
+  relatedEventId?: number
+}
+
+const EVENT_STATUS_LABELS: Record<EventApprovalStatus, string> = {
+  pending_advisor: "Pending Advisor Review",
+  pending_sa: "Pending Student Affairs",
+  published: "Published",
+  denied: "Denied",
+}
+
+const EVENT_STATUS_COLORS: Record<EventApprovalStatus, string> = {
+  pending_advisor: "var(--warning)",
+  pending_sa: "var(--info)",
+  published: "var(--success)",
+  denied: "var(--danger)",
+}
+
+const CATEGORY_IMAGES: Record<string, string> = {
+  Tech: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600&h=300&fit=crop&auto=format",
+  Academic: "https://images.unsplash.com/photo-1559136555-9303baea8ebd?w=600&h=300&fit=crop&auto=format",
+  Cultural: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=600&h=300&fit=crop&auto=format",
+  Sports: "https://images.unsplash.com/photo-1546519638-68e109498ffc?w=600&h=300&fit=crop&auto=format",
+}
+
+function formatFormDate(iso: string) {
+  if (!iso) return formatEventDate()
+  const d = new Date(`${iso}T12:00:00`)
+  return Number.isNaN(d.getTime()) ? formatEventDate() : formatEventDate(d)
+}
+
+function formatFormTime(hhmm: string) {
+  if (!hhmm) return "12:00 PM"
+  const [hRaw, mRaw] = hhmm.split(":")
+  const h = Number(hRaw)
+  const m = Number(mRaw)
+  if (Number.isNaN(h) || Number.isNaN(m)) return "12:00 PM"
+  const period = h >= 12 ? "PM" : "AM"
+  const h12 = h % 12 || 12
+  return `${h12}:${String(m).padStart(2, "0")} ${period}`
+}
+
+function publishedEvents(events: HubEvent[]) {
+  return events.filter((e) => e.status === "published")
+}
 
 // ─── Date / time helpers ──────────────────────────────────────────────────────
 function formatEventDate(date: Date = new Date()) {
@@ -92,6 +226,14 @@ function parseEventStart(dateStr: string, timeStr: string) {
 
 const TODAY_LABEL = formatEventDate()
 
+const AUDITORIUMS = [
+  "Tuwaiq Auditorium",
+  "Main Lecture Hall",
+  "Theater Hall",
+  "Innovation Hub, B2",
+  "Business School Auditorium",
+] as const
+
 // ─── Shared color system (mirrors CSS custom properties in index.css) ───────
 const CATEGORY_COLORS: Record<string, string> = {
   Tech: "#3D7DD8",
@@ -108,90 +250,150 @@ const ROLE_ICONS: Record<Role, LucideIcon> = {
 }
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
-const EVENTS = [
+const INITIAL_HUB_EVENTS: HubEvent[] = [
   {
     id: 1,
     title: "Google Developer Summit",
+    desc: "A full-day summit featuring Google engineers, hands-on labs, and student showcases.",
     club: "Google Developer Student Club",
+    submittedBy: "Ahmed Al-Zahrani",
     date: TODAY_LABEL,
     time: "1:00 PM",
     location: "Tuwaiq Auditorium",
+    requirements: "Projector, stage mics, seating for 250, livestream setup",
     category: "Tech",
     capacity: 250,
     registered: 187,
     vision2030: "Innovation",
-    image: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600&h=300&fit=crop&auto=format",
+    image: CATEGORY_IMAGES.Tech,
     color: CATEGORY_COLORS.Tech,
+    status: "published",
   },
   {
     id: 2,
     title: "Sustainability Design Hackathon",
+    desc: "24-hour design sprint focused on campus sustainability challenges.",
     club: "Environmental Society",
+    submittedBy: "Lina Al-Ghamdi",
     date: TODAY_LABEL,
     time: "9:00 AM",
     location: "Innovation Hub, B2",
+    requirements: "Worktables, power strips, whiteboards, light catering",
     category: "Academic",
     capacity: 80,
     registered: 54,
     vision2030: "Sustainability",
     image: "https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=600&h=300&fit=crop&auto=format",
     color: CATEGORY_COLORS.Academic,
+    status: "published",
   },
   {
     id: 3,
     title: "YU Cultural Festival 2026",
+    desc: "Campus-wide celebration of culture, food, and student performances.",
     club: "Student Affairs",
+    submittedBy: "Eng. Noura Al-Dosari",
     date: TODAY_LABEL,
     time: "5:30 PM",
     location: "Main Campus Grounds",
+    requirements: "Outdoor stage, sound system, vendor booths, security detail",
     category: "Cultural",
     capacity: 1200,
     registered: 876,
     vision2030: "Community Development",
-    image: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=600&h=300&fit=crop&auto=format",
+    image: CATEGORY_IMAGES.Cultural,
     color: CATEGORY_COLORS.Cultural,
+    status: "published",
   },
   {
     id: 4,
     title: "Entrepreneurship Bootcamp",
+    desc: "Intensive workshop covering ideation, pitching, and early-stage funding.",
     club: "YU Entrepreneurship Club",
+    submittedBy: "Sara Al-Otaibi",
     date: "Aug 15, 2026",
     time: "11:00 AM",
-    location: "Business School, Room 201",
+    location: "Business School Auditorium",
+    requirements: "Lecture AV, breakout rooms, printed workbooks",
     category: "Academic",
     capacity: 60,
     registered: 41,
     vision2030: "Innovation",
-    image: "https://images.unsplash.com/photo-1559136555-9303baea8ebd?w=600&h=300&fit=crop&auto=format",
+    image: CATEGORY_IMAGES.Academic,
     color: CATEGORY_COLORS.Academic,
+    status: "published",
   },
   {
     id: 5,
     title: "Inter-University Basketball Championship",
+    desc: "Championship finals between YU and partner universities.",
     club: "Sports Federation",
+    submittedBy: "Faisal Al-Harbi",
     date: "Aug 20, 2026",
     time: "5:00 PM",
     location: "Sports Arena",
+    requirements: "Court setup, scoreboard operators, medical standby",
     category: "Sports",
     capacity: 500,
     registered: 320,
     vision2030: "Community Development",
-    image: "https://images.unsplash.com/photo-1546519638-68e109498ffc?w=600&h=300&fit=crop&auto=format",
+    image: CATEGORY_IMAGES.Sports,
     color: CATEGORY_COLORS.Sports,
+    status: "published",
   },
   {
     id: 6,
-    title: "AI & Machine Learning Workshop",
+    title: "Design Systems Night",
+    desc: "Evening talk on product design systems with student portfolio reviews.",
     club: "Google Developer Student Club",
-    date: "Aug 12, 2026",
-    time: "2:00 PM",
-    location: "Innovation Lab",
+    submittedBy: "Ahmed Al-Zahrani",
+    date: "Aug 18, 2026",
+    time: "6:00 PM",
+    location: "Theater Hall",
+    requirements: "Projector, handheld mics, lounge seating",
     category: "Tech",
-    capacity: 100,
-    registered: 72,
+    capacity: 120,
+    registered: 0,
     vision2030: "Innovation",
     image: "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=600&h=300&fit=crop&auto=format",
     color: CATEGORY_COLORS.Tech,
+    status: "pending_sa",
+  },
+  {
+    id: 7,
+    title: "AI & Machine Learning Workshop",
+    desc: "Hands-on workshop covering model basics, ethics, and Saudi Vision use cases.",
+    club: "Google Developer Student Club",
+    submittedBy: "Ahmed Al-Zahrani",
+    date: "Aug 12, 2026",
+    time: "2:00 PM",
+    location: "Tuwaiq Auditorium",
+    requirements: "Laptops required, projector, whiteboard, seating for 100",
+    category: "Tech",
+    capacity: 100,
+    registered: 0,
+    vision2030: "Innovation",
+    image: "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=600&h=300&fit=crop&auto=format",
+    color: CATEGORY_COLORS.Tech,
+    status: "pending_advisor",
+  },
+  {
+    id: 8,
+    title: "Debate Championship Trip",
+    desc: "Regional debate championship travel and on-campus kickoff briefing.",
+    club: "YU Debate Society",
+    submittedBy: "Turki Al-Anzi",
+    date: "Aug 25, 2026",
+    time: "10:00 AM",
+    location: "Main Lecture Hall",
+    requirements: "Travel roster, briefing AV, chaperone coordination",
+    category: "Academic",
+    capacity: 40,
+    registered: 0,
+    vision2030: "Community Development",
+    image: CATEGORY_IMAGES.Academic,
+    color: CATEGORY_COLORS.Academic,
+    status: "pending_advisor",
   },
 ]
 
@@ -219,37 +421,27 @@ const MEMBERS = [
   { id: 6, name: "Khalid Al-Rashidi", id_num: "202210167", attendance: 0, status: "pending", joined: "Jul 2026" },
 ]
 
-const PENDING_APPROVALS = [
+const BUDGET_APPROVALS_SEED = [
   {
-    id: 1,
-    title: "AI & Machine Learning Workshop",
-    club: "Google Developer Student Club",
-    date: "Aug 12, 2026",
-    type: "Event",
-    submittedBy: "Ahmed Al-Zahrani",
-    vision2030: "Innovation",
-    status: "pending",
-  },
-  {
-    id: 2,
+    id: 101,
     title: "Environmental Clean-Up Drive Budget",
     club: "Environmental Society",
     date: "Aug 8, 2026",
-    type: "Budget",
+    type: "Budget" as const,
     submittedBy: "Lina Al-Ghamdi",
     vision2030: "Sustainability",
-    status: "pending",
+    status: "pending" as "pending" | "approved" | "changes-requested",
   },
-  {
-    id: 3,
-    title: "Debate Championship Trip",
-    club: "YU Debate Society",
-    date: "Aug 25, 2026",
-    type: "Event",
-    submittedBy: "Turki Al-Anzi",
-    vision2030: "Community Development",
-    status: "pending",
-  },
+]
+
+const INITIAL_NOTIFICATIONS: AppNotification[] = [
+  { id: 1, role: "student", icon: CalendarDays, title: "Event Reminder", body: "Google Developer Summit starts today. You're registered!", time: "Just now", urgent: true },
+  { id: 2, role: "student", icon: Sparkles, title: "YU Points Earned", body: "You earned 50 points for attending the Debate Workshop.", time: "3h ago", urgent: false },
+  { id: 3, role: "president", icon: UserPlus, title: "New Join Request", body: "3 new members requested to join your club.", time: "4h ago", urgent: false },
+  { id: 4, role: "advisor", icon: ClipboardCheck, title: "New Proposal", body: "GDSC submitted AI & Machine Learning Workshop for your review.", time: "30m ago", urgent: true, relatedEventId: 7 },
+  { id: 5, role: "advisor", icon: Wallet, title: "Budget Request", body: "Environmental Society submitted a SAR 2,400 budget request.", time: "2h ago", urgent: true },
+  { id: 6, role: "committee", icon: ClipboardCheck, title: "Event Awaiting Confirmation", body: "Design Systems Night was forwarded by the club advisor for Student Affairs review.", time: "45m ago", urgent: true, relatedEventId: 6 },
+  { id: 7, role: "committee", icon: Star, title: "Evaluation Due", body: "3 events from July are pending your score.", time: "3h ago", urgent: true },
 ]
 
 const COMPLETED_EVENTS = [
@@ -285,8 +477,211 @@ const COMPLETED_EVENTS = [
   },
 ]
 
-type EventItem = (typeof EVENTS)[number]
+type EventItem = HubEvent
 type RecommendedEvent = EventItem & { reason: string }
+
+// ─── Event approval workflow context ──────────────────────────────────────────
+type EventWorkflowValue = {
+  events: HubEvent[]
+  notifications: AppNotification[]
+  published: HubEvent[]
+  submitEvent: (input: {
+    name: string
+    desc: string
+    date: string
+    time: string
+    auditorium: string
+    requirements: string
+    capacity: string
+    category: string
+    vision2030: string
+  }) => void
+  forwardToStudentAffairs: (id: number, advisorNote?: string) => void
+  confirmEvent: (id: number) => void
+  denyEvent: (id: number, reason: string) => void
+  urgentCountFor: (role: Role) => number
+}
+
+const EventWorkflowContext = createContext<EventWorkflowValue | null>(null)
+
+function useEventWorkflow() {
+  const ctx = useContext(EventWorkflowContext)
+  if (!ctx) throw new Error("useEventWorkflow must be used within EventWorkflowProvider")
+  return ctx
+}
+
+function EventWorkflowProvider({ children }: { children: ReactNode }) {
+  const [events, setEvents] = useState<HubEvent[]>(INITIAL_HUB_EVENTS)
+  const [notifications, setNotifications] = useState<AppNotification[]>(INITIAL_NOTIFICATIONS)
+  const nextNotifId = useRef(Math.max(...INITIAL_NOTIFICATIONS.map((n) => n.id)) + 1)
+
+  const pushNotif = useCallback((notif: Omit<AppNotification, "id">) => {
+    const id = nextNotifId.current++
+    setNotifications((prev) => [{ ...notif, id }, ...prev])
+  }, [])
+
+  const submitEvent = useCallback((input: {
+    name: string
+    desc: string
+    date: string
+    time: string
+    auditorium: string
+    requirements: string
+    capacity: string
+    category: string
+    vision2030: string
+  }) => {
+    const id = Date.now()
+    const event: HubEvent = {
+      id,
+      title: input.name.trim(),
+      desc: input.desc.trim(),
+      club: "Google Developer Student Club",
+      submittedBy: "Ahmed Al-Zahrani",
+      date: formatFormDate(input.date),
+      time: formatFormTime(input.time),
+      location: input.auditorium,
+      requirements: input.requirements.trim(),
+      category: input.category,
+      capacity: Math.max(1, Number(input.capacity) || 50),
+      registered: 0,
+      vision2030: input.vision2030,
+      image: CATEGORY_IMAGES[input.category] ?? CATEGORY_IMAGES.Tech,
+      color: CATEGORY_COLORS[input.category] ?? CATEGORY_COLORS.Tech,
+      status: "pending_advisor",
+    }
+    setEvents((prev) => [event, ...prev])
+    pushNotif({
+      role: "advisor",
+      icon: ClipboardCheck,
+      title: "New Event for Review",
+      body: `${event.club} submitted “${event.title}” — status: ${EVENT_STATUS_LABELS.pending_advisor}.`,
+      time: "Just now",
+      urgent: true,
+      relatedEventId: id,
+    })
+  }, [pushNotif])
+
+  const forwardToStudentAffairs = useCallback((id: number, advisorNote?: string) => {
+    let title = "Event"
+    setEvents((prev) =>
+      prev.map((e) => {
+        if (e.id !== id || e.status !== "pending_advisor") return e
+        title = e.title
+        return { ...e, status: "pending_sa" as const, advisorNote: advisorNote?.trim() || e.advisorNote }
+      })
+    )
+    pushNotif({
+      role: "committee",
+      icon: ClipboardCheck,
+      title: "Event Awaiting Confirmation",
+      body: `“${title}” was forwarded by the club advisor for Student Affairs review.`,
+      time: "Just now",
+      urgent: true,
+      relatedEventId: id,
+    })
+    pushNotif({
+      role: "president",
+      icon: ArrowRight,
+      title: "Forwarded to Student Affairs",
+      body: `Your advisor forwarded “${title}” to Student Affairs for final confirmation.`,
+      time: "Just now",
+      urgent: false,
+      relatedEventId: id,
+    })
+  }, [pushNotif])
+
+  const confirmEvent = useCallback((id: number) => {
+    let title = "Event"
+    setEvents((prev) =>
+      prev.map((e) => {
+        if (e.id !== id || e.status !== "pending_sa") return e
+        title = e.title
+        return { ...e, status: "published" as const }
+      })
+    )
+    pushNotif({
+      role: "student",
+      icon: CalendarDays,
+      title: "New Event Published",
+      body: `“${title}” is now live on the Events Hub — register before spots fill up.`,
+      time: "Just now",
+      urgent: true,
+      relatedEventId: id,
+    })
+    pushNotif({
+      role: "president",
+      icon: CheckCircle2,
+      title: "Event Published",
+      body: `Student Affairs confirmed “${title}”. It is now visible to students.`,
+      time: "Just now",
+      urgent: true,
+      relatedEventId: id,
+    })
+    pushNotif({
+      role: "advisor",
+      icon: CheckCircle2,
+      title: "Event Confirmed",
+      body: `Student Affairs approved “${title}” and published it to the student feed.`,
+      time: "Just now",
+      urgent: false,
+      relatedEventId: id,
+    })
+  }, [pushNotif])
+
+  const denyEvent = useCallback((id: number, reason: string) => {
+    const trimmed = reason.trim()
+    if (!trimmed) return
+    let title = "Event"
+    setEvents((prev) =>
+      prev.map((e) => {
+        if (e.id !== id || e.status !== "pending_sa") return e
+        title = e.title
+        return { ...e, status: "denied" as const, denialReason: trimmed }
+      })
+    )
+    pushNotif({
+      role: "advisor",
+      icon: AlertTriangle,
+      title: "Event Denied by Student Affairs",
+      body: `“${title}” was declined. Reason: ${trimmed}`,
+      time: "Just now",
+      urgent: true,
+      relatedEventId: id,
+    })
+    pushNotif({
+      role: "president",
+      icon: AlertTriangle,
+      title: "Event Not Approved",
+      body: `Student Affairs declined “${title}”. Your advisor was notified with the reason.`,
+      time: "Just now",
+      urgent: true,
+      relatedEventId: id,
+    })
+  }, [pushNotif])
+
+  const published = useMemo(() => publishedEvents(events), [events])
+  const urgentCountFor = useCallback(
+    (role: Role) => notifications.filter((n) => n.role === role && n.urgent).length,
+    [notifications]
+  )
+
+  const value = useMemo(
+    () => ({
+      events,
+      notifications,
+      published,
+      submitEvent,
+      forwardToStudentAffairs,
+      confirmEvent,
+      denyEvent,
+      urgentCountFor,
+    }),
+    [events, notifications, published, submitEvent, forwardToStudentAffairs, confirmEvent, denyEvent, urgentCountFor]
+  )
+
+  return <EventWorkflowContext.Provider value={value}>{children}</EventWorkflowContext.Provider>
+}
 
 const EVENT_DURATION_MS = 4 * 60 * 60 * 1000
 
@@ -325,7 +720,7 @@ function clubCategoryByName(clubName: string) {
   return CLUBS.find((c) => c.name === clubName)?.category
 }
 
-function getRecommendedEvents(registeredIds: number[], limit = 3): RecommendedEvent[] {
+function getRecommendedEvents(catalog: HubEvent[], registeredIds: number[], limit = 3): RecommendedEvent[] {
   const joinedClubs = CLUBS.filter((c) => STUDENT_JOINED_CLUB_IDS.includes(c.id))
   const joinedCategories = new Set(joinedClubs.map((c) => c.category))
   const majorCategories = new Set(categoriesForMajor(STUDENT_MAJOR))
@@ -336,7 +731,7 @@ function getRecommendedEvents(registeredIds: number[], limit = 3): RecommendedEv
   const hasPersonalSignal =
     joinedCategories.size > 0 || majorCategories.size > 0 || attendedCategories.size > 0
 
-  const candidates = EVENTS.filter(
+  const candidates = catalog.filter(
     (ev) => !registeredIds.includes(ev.id) && !attendedTitles.has(ev.title)
   )
 
@@ -418,7 +813,7 @@ function shortClubLabel(name: string) {
  * attended events, and evaluated-event certificates.
  * TODO: Rewards badges have no earned dates — skip until dates exist.
  */
-function buildSemesterJourney(registeredIds: number[]): JourneyMonth[] {
+function buildSemesterJourney(catalog: HubEvent[], registeredIds: number[]): JourneyMonth[] {
   const entries: JourneyEntry[] = []
 
   for (const club of CLUBS) {
@@ -447,7 +842,7 @@ function buildSemesterJourney(registeredIds: number[]): JourneyMonth[] {
     }
   }
 
-  for (const ev of EVENTS) {
+  for (const ev of catalog) {
     if (!registeredIds.includes(ev.id)) continue
     const start = parseEventStart(ev.date, ev.time).getTime()
     if (start > Date.now()) {
@@ -493,7 +888,7 @@ function buildSemesterJourney(registeredIds: number[]): JourneyMonth[] {
 }
 
 // ─── Shared primitives ────────────────────────────────────────────────────────
-function tint(color: string, pct = 14, base = "white") {
+function tint(color: string, pct = 14, base = "var(--card)") {
   return `color-mix(in srgb, ${color} ${pct}%, ${base})`
 }
 
@@ -531,7 +926,7 @@ function Button({
       style: { background: "var(--gradient-brand)", boxShadow: "var(--shadow-brand)" },
     },
     secondary: {
-      cls: "bg-white border hover:-translate-y-px",
+      cls: "bg-[var(--card)] border hover:-translate-y-px",
       style: { borderColor: "var(--border-strong)", color: "var(--text-primary)", boxShadow: "var(--shadow-xs)" },
     },
     ghost: {
@@ -577,7 +972,7 @@ function Card({
 }) {
   return (
     <div
-      className={`bg-white rounded-[var(--r-lg)] border ${padding} ${hover ? "lift-hover group" : ""} ${className}`}
+      className={`bg-[var(--card)] rounded-[var(--r-lg)] border ${padding} ${hover ? "lift-hover group" : ""} ${className}`}
       style={{ borderColor: "var(--border)", boxShadow: "var(--shadow-xs)", ...style }}
     >
       {children}
@@ -632,7 +1027,7 @@ function StatCard({
 }) {
   return (
     <div
-      className="bg-white rounded-[var(--r-lg)] p-5 border flex items-start gap-4 lift-hover animate-fade-up"
+      className="bg-[var(--card)] rounded-[var(--r-lg)] p-5 border flex items-start gap-4 lift-hover animate-fade-up"
       style={{ borderColor: "var(--border)", boxShadow: "var(--shadow-xs)", animationDelay: `${delay}ms` }}
     >
       <div
@@ -720,6 +1115,70 @@ function StarRating({ value, onChange }: { value: number; onChange: (v: number) 
   )
 }
 
+function useCountdown(targetMs: number) {
+  const [now, setNow] = useState(Date.now())
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(id)
+  }, [])
+
+  const remaining = Math.max(0, targetMs - now)
+  const totalSeconds = Math.floor(remaining / 1000)
+  const days = Math.floor(totalSeconds / 86400)
+  const hours = Math.floor((totalSeconds % 86400) / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  return { days, hours, minutes, seconds, remaining }
+}
+
+function LiveCountdown({ targetMs, compact = false }: { targetMs: number; compact?: boolean }) {
+  const { days, hours, minutes, seconds, remaining } = useCountdown(targetMs)
+  const units = [
+    { label: "Days", value: days },
+    { label: "Hours", value: hours },
+    { label: "Mins", value: minutes },
+    { label: "Secs", value: seconds },
+  ]
+
+  if (remaining === 0) {
+    return (
+      <div
+        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[12px] font-semibold"
+        style={{ background: "var(--success-pale)", color: "var(--success)" }}
+      >
+        <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "var(--success)" }} />
+        Live now
+      </div>
+    )
+  }
+
+  return (
+    <div className={`flex ${compact ? "gap-1.5" : "gap-2"}`} aria-live="polite" aria-label="Countdown until event starts">
+      {units.map((unit) => (
+        <div
+          key={unit.label}
+          className={`flex flex-col items-center rounded-xl border ${compact ? "min-w-[52px] px-2 py-1.5" : "min-w-[64px] px-2.5 py-2"}`}
+          style={{ background: "var(--surface-sunken)", borderColor: "var(--border)" }}
+        >
+          <span
+            className={`font-display font-bold mono tabular-nums leading-none ${compact ? "text-[15px]" : "text-lg"}`}
+            style={{ color: "var(--text-primary)" }}
+          >
+            {String(unit.value).padStart(2, "0")}
+          </span>
+          <span
+            className="text-[9px] font-bold mono uppercase tracking-widest mt-1"
+            style={{ color: "var(--text-muted)" }}
+          >
+            {unit.label}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ─── QR Code visual ───────────────────────────────────────────────────────────
 function QRCode({ size = 160 }: { size?: number }) {
   const cells = 21
@@ -789,6 +1248,7 @@ const NAV_ITEMS: Record<Role, { icon: LucideIcon; label: string; view: View }[]>
     { icon: Bell, label: "Notifications", view: "notifications" },
   ],
   committee: [
+    { icon: ClipboardCheck, label: "Event Approvals", view: "event-approvals" },
     { icon: CalendarRange, label: "Master Calendar", view: "calendar" },
     { icon: Star, label: "Event Evaluation", view: "evaluation" },
     { icon: BadgeCheck, label: "Certifications", view: "certifications" },
@@ -824,7 +1284,7 @@ function Sidebar({
   return (
     <aside
       className="noise flex flex-col h-full relative"
-      style={{ background: "var(--obsidian)", width: 272, minWidth: 272, borderRight: "1px solid rgba(255,255,255,0.06)" }}
+      style={{ background: "var(--obsidian)", width: 272, minWidth: 272, borderRight: "1px solid var(--border)" }}
     >
       {/* Logo */}
       <div className="px-6 pt-8 pb-7 relative z-10">
@@ -908,11 +1368,18 @@ function FieldShell({ label, children }: { label: string; children: ReactNode })
   )
 }
 
-function LoginScreen({ onLogin }: { onLogin: (role: Role) => void }) {
+function LoginScreen({
+  onLogin,
+  theme,
+  onToggleTheme,
+}: {
+  onLogin: (role: Role) => void
+  theme: Theme
+  onToggleTheme: () => void
+}) {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [role, setRole] = useState<Role>("student")
-  const [step, setStep] = useState<"login" | "onboarding">("login")
 
   const roles: { value: Role; label: string; icon: LucideIcon }[] = [
     { value: "student", label: "Student", icon: GraduationCap },
@@ -921,67 +1388,16 @@ function LoginScreen({ onLogin }: { onLogin: (role: Role) => void }) {
     { value: "committee", label: "Student Affairs", icon: Landmark },
   ]
 
-  const onboardingText: Record<Role, string[]> = {
-    student: [
-      "Discover and RSVP to campus events with your personal QR Pass",
-      "Join clubs and track your activity in one place",
-      "Earn YU Points by participating in campus life",
-    ],
-    president: [
-      "Manage your club's events, members, and engagement metrics",
-      "Create events and scan QR codes for instant attendance tracking",
-      "Submit proposals to your advisor and track approvals",
-    ],
-    advisor: [
-      "Review and approve club events and budget proposals",
-      "Monitor club performance analytics across the semester",
-      "Provide structured feedback to club leaders",
-    ],
-    committee: [
-      "View the master calendar to prevent scheduling conflicts",
-      "Evaluate completed events with a structured scoring rubric",
-      "Issue certifications and generate university-wide reports",
-    ],
-  }
-
-  if (step === "onboarding") {
-    const R = roles.find((r) => r.value === role)!
-    return (
-      <div className="noise min-h-screen flex items-center justify-center relative overflow-hidden" style={{ background: "var(--gradient-hero)" }}>
-        <div className="animate-float absolute w-[480px] h-[480px] rounded-full pointer-events-none" style={{ background: "var(--brand)", opacity: 0.16, filter: "blur(120px)", top: "-12%", left: "-8%" }} />
-        <div className="w-full max-w-md mx-auto px-6 relative z-10 animate-scale-in">
-          <div className="rounded-[var(--r-2xl)] p-9 border" style={{ background: "rgba(255,255,255,0.045)", borderColor: "rgba(255,255,255,0.09)", backdropFilter: "blur(20px)" }}>
-            <div className="text-center mb-8">
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: "var(--gradient-brand)", boxShadow: "var(--shadow-brand)" }}>
-                <R.icon size={24} strokeWidth={2} color="white" />
-              </div>
-              <h2 className="font-display text-2xl font-bold text-white">Welcome, {ROLE_LABELS[role]}</h2>
-              <p className="text-sm mt-1.5" style={{ color: "rgba(255,255,255,0.45)" }}>Here's what you can do</p>
-            </div>
-            <div className="space-y-4 mb-8">
-              {onboardingText[role].map((tip, i) => (
-                <div key={i} className="flex gap-3.5 items-start animate-fade-up" style={{ animationDelay: `${i * 90}ms` }}>
-                  <div
-                    className="font-display w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 mt-0.5"
-                    style={{ background: "var(--brand)", color: "var(--obsidian)" }}
-                  >
-                    {i + 1}
-                  </div>
-                  <p className="text-[13.5px] leading-relaxed" style={{ color: "rgba(255,255,255,0.75)" }}>{tip}</p>
-                </div>
-              ))}
-            </div>
-            <Button variant="primary" size="lg" icon={ArrowRight} iconPosition="right" onClick={() => onLogin(role)} className="w-full">
-              Enter Your Hub
-            </Button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="noise min-h-screen flex relative overflow-hidden" style={{ background: "var(--gradient-hero)" }}>
+      <div className="absolute top-5 right-5 z-20">
+        <ThemeToggle
+          theme={theme}
+          onToggle={onToggleTheme}
+          className="bg-white/10 hover:bg-white/15"
+          style={{ borderColor: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.85)", background: "rgba(255,255,255,0.1)" }}
+        />
+      </div>
       <div className="animate-float absolute w-[560px] h-[560px] rounded-full pointer-events-none" style={{ background: "var(--brand)", opacity: 0.14, filter: "blur(140px)", top: "-14%", left: "4%" }} />
       <div className="absolute w-[420px] h-[420px] rounded-full pointer-events-none" style={{ background: "#8A63D6", opacity: 0.08, filter: "blur(140px)", bottom: "-10%", right: "6%" }} />
 
@@ -1076,7 +1492,7 @@ function LoginScreen({ onLogin }: { onLogin: (role: Role) => void }) {
             </div>
           </div>
 
-          <Button variant="primary" size="lg" icon={ArrowRight} iconPosition="right" onClick={() => setStep("onboarding")} className="w-full mb-4">
+          <Button variant="primary" size="lg" icon={ArrowRight} iconPosition="right" onClick={() => onLogin(role)} className="w-full mb-4">
             Continue
           </Button>
           <p className="text-center text-[11.5px]" style={{ color: "rgba(255,255,255,0.25)" }}>Authorized users only · Al Yamamah University</p>
@@ -1088,6 +1504,9 @@ function LoginScreen({ onLogin }: { onLogin: (role: Role) => void }) {
 
 // ─── Student views ─────────────────────────────────────────────────────────────
 function EventPreviewCard({ event, reason }: { event: EventItem; reason?: string }) {
+  const start = parseEventStart(event.date, event.time).getTime()
+  const showCountdown = Date.now() < start + EVENT_DURATION_MS
+
   return (
     <Card hover padding="p-0" className="overflow-hidden">
       <div className="relative h-36 overflow-hidden">
@@ -1104,6 +1523,11 @@ function EventPreviewCard({ event, reason }: { event: EventItem; reason?: string
             <Sparkles size={11} strokeWidth={2} /> {reason}
           </p>
         )}
+        {showCountdown && (
+          <div className="mt-3">
+            <LiveCountdown targetMs={start} compact />
+          </div>
+        )}
         <div className="mt-3">
           <ProgressBar value={event.registered} max={event.capacity} color={event.color} />
           <p className="text-[11px] mt-1.5 mono" style={{ color: "var(--text-muted)" }}>{event.registered}/{event.capacity} registered</p>
@@ -1114,7 +1538,8 @@ function EventPreviewCard({ event, reason }: { event: EventItem; reason?: string
 }
 
 function SemesterJourneyCard({ registered }: { registered: number[] }) {
-  const months = buildSemesterJourney(registered)
+  const { published } = useEventWorkflow()
+  const months = buildSemesterJourney(published, registered)
 
   return (
     <Card>
@@ -1174,7 +1599,8 @@ function FeaturedHeroBanner() {
     }
   }, [])
 
-  const featured = getFeaturedEvent(EVENTS, now)
+  const { published } = useEventWorkflow()
+  const featured = getFeaturedEvent(published, now)
 
   if (!featured) {
     return (
@@ -1210,7 +1636,7 @@ function FeaturedHeroBanner() {
   return (
     <div className="noise rounded-[var(--r-xl)] overflow-hidden relative" style={{ minHeight: 240, background: "var(--gradient-ink)" }}>
       <img src={ev.image} alt={ev.title} className="absolute inset-0 w-full h-full object-cover opacity-[0.22]" />
-      <div className="absolute inset-0" style={{ background: "linear-gradient(90deg, rgba(11,10,8,0.94) 8%, rgba(11,10,8,0.4) 100%)" }} />
+      <div className="absolute inset-0" style={{ background: "linear-gradient(90deg, rgba(9,9,11,0.94) 8%, rgba(9,9,11,0.4) 100%)" }} />
       <div className="relative z-10 p-9 flex items-end min-h-[240px]">
         <div className="animate-fade-up">
           <Badge label={ev.category} color="var(--brand)" />
@@ -1238,12 +1664,13 @@ function FeaturedHeroBanner() {
 }
 
 function StudentFeed({ registered }: { registered: number[] }) {
-  const todaySchedule = EVENTS
+  const { published } = useEventWorkflow()
+  const todaySchedule = published
     .filter((ev) => registered.includes(ev.id) && ev.date === TODAY_LABEL)
     .sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time))
 
-  const recommended = getRecommendedEvents(registered, 3)
-  const upcoming = EVENTS.filter(
+  const recommended = getRecommendedEvents(published, registered, 3)
+  const upcoming = published.filter(
     (ev) => ev.date !== TODAY_LABEL && !registered.includes(ev.id) && !recommended.some((r) => r.id === ev.id)
   ).slice(0, 2)
 
@@ -1270,21 +1697,27 @@ function StudentFeed({ registered }: { registered: number[] }) {
             </p>
           ) : (
             <div className="space-y-2.5">
-              {todaySchedule.map((ev) => (
-                <div
-                  key={ev.id}
-                  className="flex gap-3 items-start p-3 rounded-xl transition-transform duration-200 hover:translate-x-0.5"
-                  style={{ background: "var(--surface-sunken)" }}
-                >
-                  <span className="text-[11px] font-bold mono shrink-0 pt-0.5 w-[4.25rem]" style={{ color: "var(--brand)" }}>{ev.time}</span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13.5px] font-semibold" style={{ color: "var(--text-primary)" }}>{ev.title}</p>
-                    <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: "var(--text-muted)" }}>
-                      <MapPin size={10} strokeWidth={2} /> {ev.location}
-                    </p>
+              {todaySchedule.map((ev) => {
+                const start = parseEventStart(ev.date, ev.time).getTime()
+                return (
+                  <div
+                    key={ev.id}
+                    className="flex flex-col gap-3 p-3 rounded-xl transition-transform duration-200 hover:translate-x-0.5"
+                    style={{ background: "var(--surface-sunken)" }}
+                  >
+                    <div className="flex gap-3 items-start">
+                      <span className="text-[11px] font-bold mono shrink-0 pt-0.5 w-[4.25rem]" style={{ color: "var(--brand)" }}>{ev.time}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[13.5px] font-semibold" style={{ color: "var(--text-primary)" }}>{ev.title}</p>
+                        <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: "var(--text-muted)" }}>
+                          <MapPin size={10} strokeWidth={2} /> {ev.location}
+                        </p>
+                      </div>
+                    </div>
+                    <LiveCountdown targetMs={start} compact />
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </Card>
@@ -1344,10 +1777,11 @@ function EventsHub({
   registered: number[]
   setRegistered: Dispatch<SetStateAction<number[]>>
 }) {
+  const { published } = useEventWorkflow()
   const [filter, setFilter] = useState("All")
   const categories = ["All", "Tech", "Academic", "Cultural", "Sports"]
 
-  const filtered = filter === "All" ? EVENTS : EVENTS.filter((e) => e.category === filter)
+  const filtered = filter === "All" ? published : published.filter((e) => e.category === filter)
 
   return (
     <div className="space-y-6">
@@ -1378,8 +1812,19 @@ function EventsHub({
       </div>
 
       <div className="space-y-4">
+        {filtered.length === 0 && (
+          <Card>
+            <EmptyState
+              icon={CalendarDays}
+              title="No published events yet"
+              body="Events appear here after Student Affairs confirms them."
+            />
+          </Card>
+        )}
         {filtered.map((ev, i) => {
           const isReg = registered.includes(ev.id)
+          const start = parseEventStart(ev.date, ev.time).getTime()
+          const showCountdown = Date.now() < start + EVENT_DURATION_MS
           return (
             <Card key={ev.id} hover padding="p-0" className="overflow-hidden md:flex animate-fade-up" style={{ animationDelay: `${i * 40}ms` }}>
               <div className="relative w-full md:w-56 h-44 md:h-auto shrink-0 overflow-hidden">
@@ -1402,6 +1847,11 @@ function EventsHub({
                     <span className="flex items-center gap-1.5"><Clock size={13} strokeWidth={2} /> {ev.time}</span>
                     <span className="flex items-center gap-1.5"><MapPin size={13} strokeWidth={2} /> {ev.location}</span>
                   </div>
+                  {showCountdown && (
+                    <div className="mb-4">
+                      <LiveCountdown targetMs={start} compact />
+                    </div>
+                  )}
                   <ProgressBar value={ev.registered} max={ev.capacity} color={ev.color} />
                   <p className="text-[11px] mt-1.5 mono" style={{ color: "var(--text-muted)" }}>{ev.registered} / {ev.capacity} spots filled</p>
                 </div>
@@ -1424,6 +1874,7 @@ function EventsHub({
 }
 
 function QRPass() {
+  const { published } = useEventWorkflow()
   const [animating, setAnimating] = useState(false)
 
   useEffect(() => {
@@ -1446,11 +1897,11 @@ function QRPass() {
           <div className="font-display w-10 h-10 rounded-xl flex items-center justify-center font-extrabold text-sm" style={{ background: "var(--gradient-brand)" }}>YU</div>
         </div>
 
-        <div className="qr-bg mx-6 mb-4 rounded-2xl p-6 flex flex-col items-center relative z-10" style={{ background: "white" }}>
+        <div className="qr-bg mx-6 mb-4 rounded-2xl p-6 flex flex-col items-center relative z-10" style={{ background: "#FAFAFA" }}>
           <div className="transition-all duration-1000" style={{ opacity: animating ? 0.85 : 1, transform: animating ? "scale(0.97)" : "scale(1)" }}>
             <QRCode size={160} />
           </div>
-          <p className="mono text-xs mt-3" style={{ color: "var(--ink)" }}>S202210045-YU-2026</p>
+          <p className="mono text-xs mt-3" style={{ color: "#18181B" }}>S202210045-YU-2026</p>
         </div>
 
         <div className="px-6 pb-6 space-y-3 relative z-10">
@@ -1478,7 +1929,7 @@ function QRPass() {
           <div className="rounded-xl p-3.5 mt-2" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.06)" }}>
             <p className="text-[9.5px] mono uppercase tracking-widest mb-2" style={{ color: "rgba(255,255,255,0.32)" }}>Registered Events</p>
             <div className="space-y-1.5">
-              {EVENTS.slice(0, 3).map((ev) => (
+              {published.slice(0, 3).map((ev) => (
                 <div key={ev.id} className="flex items-center justify-between">
                   <p className="text-xs truncate flex-1 mr-2" style={{ color: "rgba(255,255,255,0.75)" }}>{ev.title}</p>
                   <span className="text-[11px] mono shrink-0" style={{ color: "var(--brand)" }}>{ev.date}</span>
@@ -1622,16 +2073,91 @@ function RewardsView() {
 
 // ─── President views ──────────────────────────────────────────────────────────
 function CommandCenter() {
+  const { events, published } = useEventWorkflow()
+  const clubName = "Google Developer Student Club"
+  const now = Date.now()
+  const pipeline = events.filter((ev) => ev.club === clubName && ev.status !== "published" && ev.status !== "denied")
+  const activeUpcoming = published
+    .filter((ev) => ev.club === clubName)
+    .map((ev) => {
+      const start = parseEventStart(ev.date, ev.time).getTime()
+      const end = start + EVENT_DURATION_MS
+      const status = now >= start && now < end ? "live" : start > now ? "upcoming" : "ended"
+      return { ev, start, status }
+    })
+    .filter((item) => item.status === "live" || item.status === "upcoming")
+    .sort((a, b) => a.start - b.start)
+
   return (
     <div className="space-y-6">
-      <SectionHeader eyebrow="Google Developer Student Club" title="Command Center" subtitle="Spring 2026 semester overview" />
+      <SectionHeader eyebrow={clubName} title="Command Center" subtitle="Spring 2026 semester overview" />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard label="Active Members" value={142} sub="+12 this month" icon={Users} accent="#8A63D6" />
-        <StatCard label="Pending Requests" value={6} sub="Awaiting approval" icon={UserPlus} accent="var(--warning)" delay={40} />
-        <StatCard label="Events This Sem." value={8} sub="3 upcoming" icon={Rocket} accent="var(--info)" delay={80} />
+        <StatCard label="In Approval" value={pipeline.length} sub="Advisor / Student Affairs" icon={ClipboardCheck} accent="var(--warning)" delay={40} />
+        <StatCard label="Events This Sem." value={8} sub={`${activeUpcoming.length} upcoming`} icon={Rocket} accent="var(--info)" delay={80} />
         <StatCard label="Avg. Attendance" value="78%" sub="Up from 65%" icon={TrendingUp} accent="var(--success)" delay={120} />
       </div>
+
+      {pipeline.length > 0 && (
+        <Card>
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h3 className="font-display font-bold text-[15px]" style={{ color: "var(--text-primary)" }}>Approval Pipeline</h3>
+              <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>Track submissions through advisor and Student Affairs review</p>
+            </div>
+            <Badge label={`${pipeline.length} open`} color="var(--warning)" />
+          </div>
+          <div className="space-y-2.5">
+            {pipeline.map((ev) => (
+              <div key={ev.id} className="flex items-center justify-between gap-3 p-3.5 rounded-xl" style={{ background: "var(--surface-sunken)" }}>
+                <div className="min-w-0">
+                  <p className="font-semibold text-[13.5px]" style={{ color: "var(--text-primary)" }}>{ev.title}</p>
+                  <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{ev.date} · {ev.location}</p>
+                </div>
+                <Badge label={EVENT_STATUS_LABELS[ev.status]} color={EVENT_STATUS_COLORS[ev.status]} />
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      <Card>
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h3 className="font-display font-bold text-[15px]" style={{ color: "var(--text-primary)" }}>Active & Upcoming Events</h3>
+            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>Live countdown to each event start</p>
+          </div>
+          <Badge label={`${activeUpcoming.length} active`} color="var(--brand)" />
+        </div>
+        {activeUpcoming.length === 0 ? (
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>No upcoming events scheduled yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {activeUpcoming.map(({ ev, start, status }) => (
+              <div
+                key={ev.id}
+                className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-xl border"
+                style={{ background: "var(--surface-sunken)", borderColor: "var(--border)" }}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                    <Badge label={status === "live" ? "Live" : "Upcoming"} color={status === "live" ? "var(--success)" : "var(--info)"} />
+                    <Badge label={ev.category} color={ev.color} />
+                  </div>
+                  <p className="font-display font-bold text-[14px]" style={{ color: "var(--text-primary)" }}>{ev.title}</p>
+                  <p className="text-xs mt-1 flex items-center gap-1.5 flex-wrap" style={{ color: "var(--text-muted)" }}>
+                    <Clock size={11} strokeWidth={2} /> {ev.date} · {ev.time}
+                    <span className="opacity-40">·</span>
+                    <MapPin size={11} strokeWidth={2} /> {ev.location}
+                  </p>
+                </div>
+                <LiveCountdown targetMs={start} compact />
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
 
       <Card>
         <div className="flex items-center justify-between mb-5">
@@ -1682,11 +2208,31 @@ function CommandCenter() {
 }
 
 function CreateEvent() {
-  const [form, setForm] = useState({
-    name: "", desc: "", date: "", time: "", location: "", capacity: "",
-    category: "Tech", vision2030: "Innovation",
-  })
+  const { submitEvent } = useEventWorkflow()
+  const emptyForm = {
+    name: "",
+    desc: "",
+    date: "",
+    time: "",
+    auditorium: AUDITORIUMS[0] as string,
+    requirements: "",
+    capacity: "",
+    category: "Tech",
+    vision2030: "Innovation",
+  }
+  const [form, setForm] = useState(emptyForm)
   const [submitted, setSubmitted] = useState(false)
+  const [error, setError] = useState("")
+
+  const handleSubmit = () => {
+    if (!form.name.trim() || !form.date || !form.time) {
+      setError("Please fill in the event name, date, and time before submitting.")
+      return
+    }
+    setError("")
+    submitEvent(form)
+    setSubmitted(true)
+  }
 
   if (submitted) {
     return (
@@ -1695,10 +2241,21 @@ function CreateEvent() {
           <CheckCircle2 size={30} strokeWidth={2} color="var(--success)" />
         </div>
         <h2 className="font-display text-2xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Event Submitted!</h2>
-        <p className="text-sm mb-7 max-w-sm" style={{ color: "var(--text-secondary)" }}>
-          Your event has been sent to your club advisor for approval.
+        <p className="text-sm mb-2 max-w-sm" style={{ color: "var(--text-secondary)" }}>
+          Status set to <strong style={{ color: "var(--text-primary)" }}>Pending Advisor Review</strong>. Your assigned club advisor has been notified.
         </p>
-        <Button variant="secondary" onClick={() => setSubmitted(false)}>Create Another</Button>
+        <p className="text-xs mb-7 max-w-sm" style={{ color: "var(--text-muted)" }}>
+          After advisor review, Student Affairs will confirm or deny before the event appears on the student feed.
+        </p>
+        <Button
+          variant="secondary"
+          onClick={() => {
+            setForm(emptyForm)
+            setSubmitted(false)
+          }}
+        >
+          Create Another
+        </Button>
       </div>
     )
   }
@@ -1743,7 +2300,33 @@ function CreateEvent() {
           {field("Date", "date", "date")}
           {field("Time", "time", "time")}
         </div>
-        {field("Location", "location", "text", "e.g. Tuwaiq Auditorium")}
+
+        <div>
+          <label className={labelCls} style={labelStyle}>Campus Auditorium</label>
+          <select
+            value={form.auditorium}
+            onChange={(e) => setForm((f) => ({ ...f, auditorium: e.target.value }))}
+            className={inputCls}
+            style={inputStyle}
+          >
+            {AUDITORIUMS.map((hall) => (
+              <option key={hall} value={hall}>{hall}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className={labelCls} style={labelStyle}>Event Requirements</label>
+          <textarea
+            rows={3}
+            placeholder="e.g. Projector, microphones, seating for 150, catering setup..."
+            value={form.requirements}
+            onChange={(e) => setForm((f) => ({ ...f, requirements: e.target.value }))}
+            className={`${inputCls} resize-none`}
+            style={inputStyle}
+          />
+        </div>
+
         {field("Capacity", "capacity", "number", "e.g. 150")}
 
         <div className="grid grid-cols-2 gap-4">
@@ -1780,8 +2363,12 @@ function CreateEvent() {
         </button>
       </Card>
 
-      <Button variant="primary" size="lg" icon={ArrowRight} iconPosition="right" onClick={() => setSubmitted(true)}>
-        Submit for Approval
+      {error && (
+        <p className="text-sm font-medium" style={{ color: "var(--danger)" }}>{error}</p>
+      )}
+
+      <Button variant="primary" size="lg" icon={ArrowRight} iconPosition="right" onClick={handleSubmit}>
+        Submit for Advisor Review
       </Button>
     </div>
   )
@@ -1942,62 +2529,161 @@ function MembersView() {
 }
 
 // ─── Advisor views ────────────────────────────────────────────────────────────
-function ApprovalsView() {
-  const [approvals, setApprovals] = useState(PENDING_APPROVALS)
-  const [feedback, setFeedback] = useState<Record<number, string>>({})
+function EventDetailBlock({ event }: { event: HubEvent }) {
+  return (
+    <div className="grid md:grid-cols-2 gap-3 mb-4">
+      <div className="rounded-xl p-3.5" style={{ background: "var(--surface-sunken)" }}>
+        <p className="text-[10px] font-bold mono uppercase tracking-widest mb-1" style={{ color: "var(--text-muted)" }}>Description</p>
+        <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>{event.desc || "No description provided."}</p>
+      </div>
+      <div className="rounded-xl p-3.5" style={{ background: "var(--surface-sunken)" }}>
+        <p className="text-[10px] font-bold mono uppercase tracking-widest mb-1" style={{ color: "var(--text-muted)" }}>Requirements</p>
+        <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>{event.requirements || "No special requirements listed."}</p>
+      </div>
+      <div className="rounded-xl p-3.5 flex items-start gap-2.5" style={{ background: "var(--surface-sunken)" }}>
+        <MapPin size={14} strokeWidth={2} className="mt-0.5 shrink-0" style={{ color: "var(--brand)" }} />
+        <div>
+          <p className="text-[10px] font-bold mono uppercase tracking-widest mb-1" style={{ color: "var(--text-muted)" }}>Auditorium / Venue</p>
+          <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{event.location}</p>
+        </div>
+      </div>
+      <div className="rounded-xl p-3.5 flex items-start gap-2.5" style={{ background: "var(--surface-sunken)" }}>
+        <CalendarDays size={14} strokeWidth={2} className="mt-0.5 shrink-0" style={{ color: "var(--brand)" }} />
+        <div>
+          <p className="text-[10px] font-bold mono uppercase tracking-widest mb-1" style={{ color: "var(--text-muted)" }}>Schedule</p>
+          <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{event.date} · {event.time}</p>
+          <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>Capacity {event.capacity}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
 
-  const approve = (id: number) => setApprovals((prev) => prev.map((a) => (a.id === id ? { ...a, status: "approved" } : a)))
-  const requestChanges = (id: number) => setApprovals((prev) => prev.map((a) => (a.id === id ? { ...a, status: "changes-requested" } : a)))
+function ApprovalsView() {
+  const { events, forwardToStudentAffairs } = useEventWorkflow()
+  const pendingEvents = events.filter((e) => e.status === "pending_advisor")
+  const forwarded = events.filter(
+    (e) =>
+      e.status === "pending_sa" ||
+      e.status === "denied" ||
+      (e.status === "published" && e.id > 5)
+  )
+  const [notes, setNotes] = useState<Record<number, string>>({})
+  const [budgets, setBudgets] = useState(BUDGET_APPROVALS_SEED)
 
   return (
-    <div className="space-y-6">
-      <SectionHeader title="Oversight & Approvals" subtitle="Review club event and budget proposals." />
+    <div className="space-y-8">
+      <SectionHeader
+        title="Oversight & Approvals"
+        subtitle="Review event details, then forward approved proposals to Student Affairs for final confirmation."
+      />
 
-      <div className="space-y-4">
-        {approvals.map((a, i) => {
-          const statusColors: Record<string, string> = {
-            pending: "var(--warning)",
-            approved: "var(--success)",
-            "changes-requested": "var(--danger)",
-          }
-          return (
-            <Card key={a.id} className="animate-fade-up" style={{ animationDelay: `${i * 50}ms` }}>
-              <div className="flex items-start justify-between gap-4 mb-3.5">
-                <div>
-                  <p className="font-display font-bold text-[15px]" style={{ color: "var(--text-primary)" }}>{a.title}</p>
-                  <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{a.club} · Submitted by {a.submittedBy} · {a.date}</p>
-                </div>
-                <div className="flex gap-2 shrink-0 flex-wrap justify-end">
-                  <Badge label={a.type} color="var(--info)" />
-                  <Badge label={a.vision2030} color="var(--success)" />
-                  <Badge label={a.status} color={statusColors[a.status]} />
-                </div>
-              </div>
-
-              {a.status === "pending" ? (
-                <>
-                  <textarea
-                    rows={2}
-                    placeholder="Add feedback notes (optional)..."
-                    value={feedback[a.id] || ""}
-                    onChange={(e) => setFeedback((f) => ({ ...f, [a.id]: e.target.value }))}
-                    className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border resize-none mb-3.5 transition-all duration-200 focus:border-[var(--brand)]"
-                    style={{ borderColor: "var(--border)", background: "var(--surface-sunken)", color: "var(--text-primary)" }}
-                  />
-                  <div className="flex gap-2">
-                    <Button variant="primary" icon={Check} onClick={() => approve(a.id)}>Approve</Button>
-                    <Button variant="danger" icon={X} onClick={() => requestChanges(a.id)}>Request Changes</Button>
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-display font-bold text-[15px]" style={{ color: "var(--text-primary)" }}>Pending Advisor Review</h3>
+          <Badge label={`${pendingEvents.length} waiting`} color="var(--warning)" />
+        </div>
+        {pendingEvents.length === 0 ? (
+          <Card>
+            <EmptyState icon={ClipboardCheck} title="Inbox clear" body="No events are waiting for advisor review right now." />
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {pendingEvents.map((ev, i) => (
+              <Card key={ev.id} className="animate-fade-up" style={{ animationDelay: `${i * 50}ms` }}>
+                <div className="flex items-start justify-between gap-4 mb-3.5">
+                  <div>
+                    <p className="font-display font-bold text-[15px]" style={{ color: "var(--text-primary)" }}>{ev.title}</p>
+                    <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                      {ev.club} · Submitted by {ev.submittedBy}
+                    </p>
                   </div>
-                </>
-              ) : (
-                <p className="text-sm font-semibold flex items-center gap-1.5" style={{ color: statusColors[a.status] }}>
-                  {a.status === "approved" ? <><CheckCircle2 size={15} strokeWidth={2.25} /> Approved</> : <><AlertTriangle size={15} strokeWidth={2.25} /> Changes Requested</>}
-                </p>
-              )}
-            </Card>
-          )
-        })}
+                  <div className="flex gap-2 shrink-0 flex-wrap justify-end">
+                    <Badge label="Event" color="var(--info)" />
+                    <Badge label={ev.vision2030} color="var(--success)" />
+                    <Badge label={EVENT_STATUS_LABELS[ev.status]} color={EVENT_STATUS_COLORS[ev.status]} />
+                  </div>
+                </div>
+
+                <EventDetailBlock event={ev} />
+
+                <textarea
+                  rows={2}
+                  placeholder="Optional note for Student Affairs..."
+                  value={notes[ev.id] || ""}
+                  onChange={(e) => setNotes((n) => ({ ...n, [ev.id]: e.target.value }))}
+                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border resize-none mb-3.5 transition-all duration-200 focus:border-[var(--brand)]"
+                  style={{ borderColor: "var(--border)", background: "var(--surface-sunken)", color: "var(--text-primary)" }}
+                />
+                <Button
+                  variant="primary"
+                  icon={ArrowRight}
+                  iconPosition="right"
+                  onClick={() => forwardToStudentAffairs(ev.id, notes[ev.id])}
+                >
+                  Forward to Student Affairs
+                </Button>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
+
+      <div>
+        <h3 className="font-display font-bold text-[15px] mb-4" style={{ color: "var(--text-primary)" }}>Budget Requests</h3>
+        <div className="space-y-4">
+          {budgets.map((a) => {
+            const statusColors: Record<string, string> = {
+              pending: "var(--warning)",
+              approved: "var(--success)",
+              "changes-requested": "var(--danger)",
+            }
+            return (
+              <Card key={a.id}>
+                <div className="flex items-start justify-between gap-4 mb-3.5">
+                  <div>
+                    <p className="font-display font-bold text-[15px]" style={{ color: "var(--text-primary)" }}>{a.title}</p>
+                    <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{a.club} · {a.submittedBy} · {a.date}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Badge label={a.type} color="var(--info)" />
+                    <Badge label={a.status} color={statusColors[a.status]} />
+                  </div>
+                </div>
+                {a.status === "pending" ? (
+                  <div className="flex gap-2">
+                    <Button variant="primary" icon={Check} onClick={() => setBudgets((prev) => prev.map((b) => (b.id === a.id ? { ...b, status: "approved" } : b)))}>Approve</Button>
+                    <Button variant="danger" icon={X} onClick={() => setBudgets((prev) => prev.map((b) => (b.id === a.id ? { ...b, status: "changes-requested" } : b)))}>Request Changes</Button>
+                  </div>
+                ) : (
+                  <p className="text-sm font-semibold" style={{ color: statusColors[a.status] }}>
+                    {a.status === "approved" ? "Approved" : "Changes requested"}
+                  </p>
+                )}
+              </Card>
+            )
+          })}
+        </div>
+      </div>
+
+      {forwarded.length > 0 && (
+        <div>
+          <h3 className="font-display font-bold text-[15px] mb-4" style={{ color: "var(--text-primary)" }}>Recently Handled Events</h3>
+          <div className="space-y-2.5">
+            {forwarded.slice(0, 6).map((ev) => (
+              <div key={ev.id} className="flex items-center justify-between gap-3 p-3.5 rounded-xl border" style={{ borderColor: "var(--border)", background: "var(--card)" }}>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>{ev.title}</p>
+                  {ev.denialReason && (
+                    <p className="text-xs mt-0.5" style={{ color: "var(--danger)" }}>Denial reason: {ev.denialReason}</p>
+                  )}
+                </div>
+                <Badge label={EVENT_STATUS_LABELS[ev.status]} color={EVENT_STATUS_COLORS[ev.status]} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -2034,7 +2720,97 @@ function AdvisorAnalytics() {
 }
 
 // ─── Committee views ──────────────────────────────────────────────────────────
+function SaEventApprovalsView() {
+  const { events, confirmEvent, denyEvent } = useEventWorkflow()
+  const pending = events.filter((e) => e.status === "pending_sa")
+  const [reasons, setReasons] = useState<Record<number, string>>({})
+  const [errors, setErrors] = useState<Record<number, string>>({})
+
+  const handleDeny = (id: number) => {
+    const reason = (reasons[id] || "").trim()
+    if (!reason) {
+      setErrors((e) => ({ ...e, [id]: "A denial reason is required before declining an event." }))
+      return
+    }
+    setErrors((e) => ({ ...e, [id]: "" }))
+    denyEvent(id, reason)
+  }
+
+  return (
+    <div className="space-y-6">
+      <SectionHeader
+        title="Event Confirmations"
+        subtitle="Review advisor-forwarded events. Confirm to publish instantly, or deny with a mandatory reason sent to the club advisor."
+      />
+
+      {pending.length === 0 ? (
+        <Card>
+          <EmptyState
+            icon={BadgeCheck}
+            title="No events awaiting confirmation"
+            body="When advisors forward proposals, they appear here for Student Affairs to confirm or deny."
+          />
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {pending.map((ev, i) => (
+            <Card key={ev.id} className="animate-fade-up" style={{ animationDelay: `${i * 50}ms` }}>
+              <div className="flex items-start justify-between gap-4 mb-3.5">
+                <div>
+                  <p className="font-display font-bold text-[15px]" style={{ color: "var(--text-primary)" }}>{ev.title}</p>
+                  <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                    {ev.club} · Submitted by {ev.submittedBy} · Forwarded by advisor
+                  </p>
+                </div>
+                <div className="flex gap-2 shrink-0 flex-wrap justify-end">
+                  <Badge label={ev.category} color={ev.color} />
+                  <Badge label={ev.vision2030} color="var(--success)" />
+                  <Badge label={EVENT_STATUS_LABELS[ev.status]} color={EVENT_STATUS_COLORS[ev.status]} />
+                </div>
+              </div>
+
+              <EventDetailBlock event={ev} />
+
+              {ev.advisorNote && (
+                <div className="rounded-xl p-3.5 mb-4 border" style={{ borderColor: "var(--border)", background: "var(--brand-50)" }}>
+                  <p className="text-[10px] font-bold mono uppercase tracking-widest mb-1" style={{ color: "var(--brand-700)" }}>Advisor note</p>
+                  <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{ev.advisorNote}</p>
+                </div>
+              )}
+
+              <textarea
+                rows={2}
+                placeholder="Denial reason (required if declining)..."
+                value={reasons[ev.id] || ""}
+                onChange={(e) => {
+                  setReasons((r) => ({ ...r, [ev.id]: e.target.value }))
+                  if (errors[ev.id]) setErrors((er) => ({ ...er, [ev.id]: "" }))
+                }}
+                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border resize-none mb-2 transition-all duration-200 focus:border-[var(--brand)]"
+                style={{ borderColor: errors[ev.id] ? "var(--danger)" : "var(--border)", background: "var(--surface-sunken)", color: "var(--text-primary)" }}
+              />
+              {errors[ev.id] && (
+                <p className="text-xs font-medium mb-3" style={{ color: "var(--danger)" }}>{errors[ev.id]}</p>
+              )}
+
+              <div className="flex gap-2 flex-wrap">
+                <Button variant="primary" icon={CheckCircle2} onClick={() => confirmEvent(ev.id)}>
+                  Confirm & Publish
+                </Button>
+                <Button variant="danger" icon={X} onClick={() => handleDeny(ev.id)}>
+                  Deny
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function MasterCalendar() {
+  const { published } = useEventWorkflow()
   const days = Array.from({ length: 31 }, (_, i) => i + 1)
   const eventDays: Record<number, boolean> = { 10: true, 15: true, 20: true, 28: true, 3: true }
 
@@ -2080,7 +2856,7 @@ function MasterCalendar() {
 
       <div className="space-y-3">
         <h3 className="font-display font-bold text-[15px]" style={{ color: "var(--text-primary)" }}>All Scheduled Events</h3>
-        {EVENTS.map((ev) => (
+        {published.map((ev) => (
           <Card key={ev.id} padding="p-4" className="flex items-center gap-4">
             <div className="font-display w-10 h-10 rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0" style={{ background: ev.color }}>
               {ev.date.split(" ")[1]?.replace(",", "") ?? "—"}
@@ -2307,7 +3083,7 @@ function CommitteeAnalytics() {
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <div className="w-24 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--surface-sunken)" }}>
-                  <div className="h-full rounded-full" style={{ width: `${club.score}%`, background: club.rank === 1 ? "var(--gradient-brand)" : "var(--ink)" }} />
+                  <div className="h-full rounded-full" style={{ width: `${club.score}%`, background: club.rank === 1 ? "var(--gradient-brand)" : "var(--border-strong)" }} />
                 </div>
                 <span className="mono text-xs font-bold" style={{ color: "var(--text-primary)" }}>{club.score}</span>
               </div>
@@ -2321,54 +3097,38 @@ function CommitteeAnalytics() {
 
 // ─── Notifications (shared) ───────────────────────────────────────────────────
 function NotificationsView({ role }: { role: Role }) {
-  const notifsByRole: Record<Role, { icon: LucideIcon; title: string; body: string; time: string; urgent: boolean }[]> = {
-    student: [
-      { icon: CalendarDays, title: "Event Reminder", body: "Google Developer Summit starts in 2 days. You're registered!", time: "Just now", urgent: true },
-      { icon: Sparkles, title: "YU Points Earned", body: "You earned 50 points for attending the Debate Workshop.", time: "3h ago", urgent: false },
-      { icon: Users, title: "Club Update", body: "GDSC: New meeting scheduled for Monday 4PM at Lab B1.", time: "1d ago", urgent: false },
-    ],
-    president: [
-      { icon: CheckCircle2, title: "Event Approved", body: "Your AI Workshop event was approved by Dr. Al-Harbi.", time: "1h ago", urgent: true },
-      { icon: UserPlus, title: "New Join Request", body: "3 new members requested to join your club.", time: "4h ago", urgent: false },
-      { icon: TrendingUp, title: "Attendance Milestone", body: "Your club hit 90% attendance this week!", time: "2d ago", urgent: false },
-    ],
-    advisor: [
-      { icon: ClipboardCheck, title: "New Proposal", body: "GDSC submitted a new event for your review.", time: "30m ago", urgent: true },
-      { icon: Wallet, title: "Budget Request", body: "Environmental Society submitted a SAR 2,400 budget request.", time: "2h ago", urgent: true },
-      { icon: CheckCircle2, title: "Report Ready", body: "Semester engagement report for your clubs is ready.", time: "1d ago", urgent: false },
-    ],
-    committee: [
-      { icon: AlertTriangle, title: "Scheduling Conflict", body: "Two events are overlapping on Aug 15 — review calendar.", time: "1h ago", urgent: true },
-      { icon: Star, title: "Evaluation Due", body: "3 events from July are pending your score.", time: "3h ago", urgent: true },
-      { icon: BadgeCheck, title: "Certification Issued", body: "Certificate issued to Environmental Society.", time: "2d ago", urgent: false },
-    ],
-  }
-
-  const notifs = notifsByRole[role]
+  const { notifications } = useEventWorkflow()
+  const notifs = notifications.filter((n) => n.role === role)
 
   return (
     <div className="space-y-6">
       <SectionHeader title="Notifications" subtitle={`${notifs.filter((n) => n.urgent).length} urgent · ${notifs.length} total`} />
 
-      <div className="space-y-3">
-        {notifs.map((n, i) => (
-          <Card key={i} className="flex gap-4 items-start animate-fade-up" style={{ borderColor: n.urgent ? "var(--brand)" : "var(--border)", animationDelay: `${i * 50}ms` }}>
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: n.urgent ? "var(--brand-100)" : "var(--surface-sunken)", color: n.urgent ? "var(--brand-700)" : "var(--text-muted)" }}
-            >
-              <n.icon size={17} strokeWidth={2} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-2">
-                <p className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>{n.title}</p>
-                <span className="text-xs mono shrink-0" style={{ color: "var(--text-muted)" }}>{n.time}</span>
+      {notifs.length === 0 ? (
+        <Card>
+          <EmptyState icon={Bell} title="No notifications" body="Workflow updates for your role will show up here." />
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {notifs.map((n, i) => (
+            <Card key={n.id} className="flex gap-4 items-start animate-fade-up" style={{ borderColor: n.urgent ? "var(--brand)" : "var(--border)", animationDelay: `${i * 50}ms` }}>
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                style={{ background: n.urgent ? "var(--brand-100)" : "var(--surface-sunken)", color: n.urgent ? "var(--brand-700)" : "var(--text-muted)" }}
+              >
+                <n.icon size={17} strokeWidth={2} />
               </div>
-              <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>{n.body}</p>
-            </div>
-          </Card>
-        ))}
-      </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>{n.title}</p>
+                  <span className="text-xs mono shrink-0" style={{ color: "var(--text-muted)" }}>{n.time}</span>
+                </div>
+                <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>{n.body}</p>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -2451,7 +3211,7 @@ function StakeholderCard({ s, delay }: { s: (typeof STAKEHOLDERS)[number]; delay
     <Reveal delay={delay}>
       <div
         className="lift-hover rounded-[var(--r-xl)] p-7 h-full border relative overflow-hidden group"
-        style={{ borderColor: "var(--border)", background: "white", boxShadow: "var(--shadow-xs)" }}
+        style={{ borderColor: "var(--border)", background: "var(--card)", boxShadow: "var(--shadow-xs)" }}
       >
         <div
           className="absolute -top-10 -right-10 w-32 h-32 rounded-full transition-transform duration-500 group-hover:scale-125"
@@ -2481,7 +3241,7 @@ const CATEGORIES: { icon: LucideIcon; name: string; weight?: number; color: stri
 function CategoryCard({ c, delay }: { c: (typeof CATEGORIES)[number]; delay: number }) {
   return (
     <Reveal delay={delay} className="h-full">
-      <div className="h-full rounded-[var(--r-lg)] border p-5 flex flex-col gap-3.5" style={{ borderColor: "var(--border)", background: "white", boxShadow: "var(--shadow-xs)" }}>
+      <div className="h-full rounded-[var(--r-lg)] border p-5 flex flex-col gap-3.5" style={{ borderColor: "var(--border)", background: "var(--card)", boxShadow: "var(--shadow-xs)" }}>
         <div className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: tint(c.color, 12), color: c.color }}>
           <c.icon size={19} strokeWidth={2} />
         </div>
@@ -2596,7 +3356,7 @@ function FormulaRing({ pct, label, sub, color, delay }: { pct: number; label: st
 function GuardrailCard({ icon: Icon, title, body, delay }: { icon: LucideIcon; title: string; body: string; delay: number }) {
   return (
     <Reveal delay={delay} className="h-full">
-      <div className="h-full rounded-[var(--r-lg)] border p-6" style={{ borderColor: "var(--border)", background: "white", boxShadow: "var(--shadow-xs)" }}>
+      <div className="h-full rounded-[var(--r-lg)] border p-6" style={{ borderColor: "var(--border)", background: "var(--card)", boxShadow: "var(--shadow-xs)" }}>
         <div className="w-11 h-11 rounded-2xl flex items-center justify-center mb-4" style={{ background: "var(--surface-sunken)", color: "var(--text-primary)" }}>
           <Icon size={19} strokeWidth={2} />
         </div>
@@ -2676,7 +3436,7 @@ function ClubFramework({ role, onNavigate }: { role: Role; onNavigate: (v: View)
             { icon: Scale, label: "Fair by design", body: "Weighted categories and caps mean no club wins by gaming one thing." },
           ].map((p, i) => (
             <Reveal key={p.label} delay={0.1 * i} className="h-full">
-              <div className="h-full rounded-[var(--r-lg)] border p-5" style={{ borderColor: "var(--border)", background: "white", boxShadow: "var(--shadow-xs)" }}>
+              <div className="h-full rounded-[var(--r-lg)] border p-5" style={{ borderColor: "var(--border)", background: "var(--card)", boxShadow: "var(--shadow-xs)" }}>
                 <p.icon size={18} strokeWidth={2} style={{ color: "var(--brand)" }} />
                 <p className="font-display font-bold text-sm mt-3" style={{ color: "var(--text-primary)" }}>{p.label}</p>
                 <p className="text-xs mt-1.5 leading-relaxed" style={{ color: "var(--text-secondary)" }}>{p.body}</p>
@@ -2825,7 +3585,7 @@ function ClubFramework({ role, onNavigate }: { role: Role; onNavigate: (v: View)
             </Reveal>
           </div>
           <Reveal delay={0.15}>
-            <div className="rounded-[var(--r-xl)] border p-2" style={{ borderColor: "var(--border)", background: "white", boxShadow: "var(--shadow-md)" }}>
+            <div className="rounded-[var(--r-xl)] border p-2" style={{ borderColor: "var(--border)", background: "var(--card)", boxShadow: "var(--shadow-md)" }}>
               <div className="space-y-1.5 p-3">
                 {AUDIT_FEED.map((e, i) => (
                   <div key={i} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "var(--surface-sunken)" }}>
@@ -2885,7 +3645,7 @@ const DEFAULT_VIEWS: Record<Role, View> = {
   student: "feed",
   president: "command",
   advisor: "approvals",
-  committee: "calendar",
+  committee: "event-approvals",
 }
 
 const VIEW_TITLES: Record<string, string> = {
@@ -2902,12 +3662,15 @@ const VIEW_TITLES: Record<string, string> = {
   approvals: "Approvals",
   analytics: "Analytics",
   calendar: "Master Calendar",
+  "event-approvals": "Event Confirmations",
   evaluation: "Event Evaluation",
   certifications: "Certifications",
   framework: "Club Framework",
 }
 
-export default function App() {
+function AppShell() {
+  const { theme, toggleTheme } = useTheme()
+  const { urgentCountFor } = useEventWorkflow()
   const [role, setRole] = useState<Role | null>(null)
   const [view, setView] = useState<View>("feed")
   const [registered, setRegistered] = useState<number[]>(INITIAL_REGISTERED_EVENT_IDS)
@@ -2923,8 +3686,10 @@ export default function App() {
   }
 
   if (!role) {
-    return <LoginScreen onLogin={handleLogin} />
+    return <LoginScreen onLogin={handleLogin} theme={theme} onToggleTheme={toggleTheme} />
   }
+
+  const urgentCount = urgentCountFor(role)
 
   const renderView = () => {
     // Student
@@ -2942,6 +3707,7 @@ export default function App() {
     if (view === "approvals") return <ApprovalsView />
     if (view === "analytics" && role === "advisor") return <AdvisorAnalytics />
     // Committee
+    if (view === "event-approvals") return <SaEventApprovalsView />
     if (view === "calendar") return <MasterCalendar />
     if (view === "evaluation") return <EventEvaluation />
     if (view === "certifications") return <CertificationsView />
@@ -2971,15 +3737,18 @@ export default function App() {
             </h1>
           </div>
           <div className="flex items-center gap-3">
+            <ThemeToggle theme={theme} onToggle={toggleTheme} />
             <button
               onClick={() => setView("notifications")}
-              className="w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 hover:-translate-y-px relative bg-white border"
+              className="w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 hover:-translate-y-px relative bg-[var(--card)] border"
               style={{ borderColor: "var(--border)", boxShadow: "var(--shadow-xs)" }}
             >
               <Bell size={16} strokeWidth={2} color="var(--text-secondary)" />
-              <div className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full border-2" style={{ background: "var(--danger)", borderColor: "white" }} />
+              {urgentCount > 0 && (
+                <div className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full border-2" style={{ background: "var(--danger)", borderColor: "var(--card)" }} />
+              )}
             </button>
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border" style={{ borderColor: "var(--border)", boxShadow: "var(--shadow-xs)" }}>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[var(--card)] border" style={{ borderColor: "var(--border)", boxShadow: "var(--shadow-xs)" }}>
               <Avatar name={USER_NAMES[role]} size={24} tone="brand" />
               <span className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{USER_NAMES[role].split(" ")[0]}</span>
             </div>
@@ -3002,5 +3771,13 @@ export default function App() {
         </div>
       </main>
     </div>
+  )
+}
+
+export default function App() {
+  return (
+    <EventWorkflowProvider>
+      <AppShell />
+    </EventWorkflowProvider>
   )
 }
