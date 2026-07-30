@@ -19,7 +19,7 @@ import {
   BookOpen, Scale, Target, Eye, History, Gavel, Gauge,
   Trophy, HeartHandshake, Flame, FlaskConical, Handshake, Megaphone,
   FileText, PenLine, Quote, ChevronDown,
-  Sun, Moon,
+  Sun, Moon, ThumbsUp, ThumbsDown,
 } from "lucide-react"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -86,6 +86,7 @@ type StudentView =
   | "notifications"
   | "rewards"
   | "framework"
+  | "event-feedback"
 
 type PresidentView =
   | "command"
@@ -144,6 +145,22 @@ type AppNotification = {
   time: string
   urgent: boolean
   relatedEventId?: number
+}
+
+type EventRecommendation = {
+  id: string
+  eventId: string
+  eventTitle: string
+  clubId: string
+  clubName: string
+  studentId: string
+  studentName: string
+  anonymous: boolean
+  rating: number // 1-5
+  wouldRecommend: boolean
+  whatWorked: string
+  whatToImprove: string
+  submittedAt: string
 }
 
 const EVENT_STATUS_LABELS: Record<EventApprovalStatus, string> = {
@@ -403,10 +420,46 @@ const INITIAL_HUB_EVENTS: HubEvent[] = [
     color: CATEGORY_COLORS.Academic,
     status: "pending_advisor",
   },
+  {
+    id: 9,
+    title: "Tech Talk: Web3 & Saudi Vision",
+    desc: "Evening talk on Web3 and how it connects to Vision 2030 digital goals.",
+    club: "Google Developer Student Club",
+    submittedBy: "Ahmed Al-Zahrani",
+    date: "Jun 28, 2026",
+    time: "6:00 PM",
+    location: "Tuwaiq",
+    requirements: "Stage mic, projector, seating for 250",
+    category: "Tech",
+    capacity: 250,
+    registered: 210,
+    vision2030: "Innovation",
+    image: CATEGORY_IMAGES.Tech,
+    color: CATEGORY_COLORS.Tech,
+    status: "published",
+  },
+  {
+    id: 10,
+    title: "Debate Workshop Series",
+    desc: "Hands-on debate drills for beginners and returning members.",
+    club: "YU Debate Society",
+    submittedBy: "Turki Al-Anzi",
+    date: "Jul 5, 2026",
+    time: "4:00 PM",
+    location: "Small Najd",
+    requirements: "Classroom seating, timer display, printed case packets",
+    category: "Academic",
+    capacity: 60,
+    registered: 48,
+    vision2030: "Community Development",
+    image: CATEGORY_IMAGES.Academic,
+    color: CATEGORY_COLORS.Academic,
+    status: "published",
+  },
 ]
 
 /** Default RSVPs so Home Feed can show today's schedule out of the box. */
-const INITIAL_REGISTERED_EVENT_IDS = [1, 2, 3]
+const INITIAL_REGISTERED_EVENT_IDS = [1, 2, 3, 9, 10]
 
 const CLUBS = [
   { id: 1, name: "Google Developer Student Club", members: 142, meetings: "Every Monday 4PM", category: "Tech", joined: true, joinedDate: "Sep 2025" },
@@ -485,6 +538,118 @@ const COMPLETED_EVENTS = [
   },
 ]
 
+const MOCK_RECOMMENDATIONS: EventRecommendation[] = [
+  {
+    id: "rec-1",
+    eventId: "9",
+    eventTitle: "Tech Talk: Web3 & Saudi Vision",
+    clubId: "1",
+    clubName: "Google Developer Student Club",
+    studentId: "202210112",
+    studentName: "Faisal Al-Harbi",
+    anonymous: false,
+    rating: 5,
+    wouldRecommend: true,
+    whatWorked: "Clear speakers and great Q&A with industry guests.",
+    whatToImprove: "More seating near the front of the hall.",
+    submittedAt: "Jun 28, 2026 · 9:14 PM",
+  },
+  {
+    id: "rec-2",
+    eventId: "9",
+    eventTitle: "Tech Talk: Web3 & Saudi Vision",
+    clubId: "1",
+    clubName: "Google Developer Student Club",
+    studentId: "202210089",
+    studentName: "Omar Al-Dosari",
+    anonymous: true,
+    rating: 4,
+    wouldRecommend: true,
+    whatWorked: "Strong Vision 2030 framing — felt relevant to our majors.",
+    whatToImprove: "Run longer hands-on demos next time.",
+    submittedAt: "Jun 29, 2026 · 11:02 AM",
+  },
+  {
+    id: "rec-3",
+    eventId: "10",
+    eventTitle: "Debate Workshop Series",
+    clubId: "2",
+    clubName: "YU Debate Society",
+    studentId: "202210234",
+    studentName: "Noura Bint Abdullah",
+    anonymous: false,
+    rating: 4,
+    wouldRecommend: true,
+    whatWorked: "Coaches gave individual feedback that actually stuck.",
+    whatToImprove: "Start on time — we lost the first 15 minutes.",
+    submittedAt: "Jul 5, 2026 · 7:40 PM",
+  },
+  {
+    id: "rec-4",
+    eventId: "10",
+    eventTitle: "Debate Workshop Series",
+    clubId: "2",
+    clubName: "YU Debate Society",
+    studentId: "202210045",
+    studentName: "Reem Al-Qahtani",
+    anonymous: false,
+    rating: 3,
+    wouldRecommend: false,
+    whatWorked: "Good warm-up drills for beginners.",
+    whatToImprove: "Room was overcrowded and hard to hear.",
+    submittedAt: "Jul 6, 2026 · 10:18 AM",
+  },
+  {
+    id: "rec-5",
+    eventId: "2",
+    eventTitle: "Sustainability Design Hackathon",
+    clubId: "3",
+    clubName: "Environmental Society",
+    studentId: "202210167",
+    studentName: "Khalid Al-Rashidi",
+    anonymous: true,
+    rating: 5,
+    wouldRecommend: true,
+    whatWorked: "Mentors were available the whole night — huge help.",
+    whatToImprove: "",
+    submittedAt: "Jul 29, 2026 · 8:05 AM",
+  },
+]
+
+function clubIdForName(clubName: string) {
+  return String(CLUBS.find((c) => c.name === clubName)?.id ?? clubName)
+}
+
+function recommendationDisplayName(rec: EventRecommendation) {
+  return rec.anonymous ? "Anonymous student" : rec.studentName
+}
+
+function avgRating(recs: EventRecommendation[]) {
+  if (recs.length === 0) return 0
+  return recs.reduce((sum, r) => sum + r.rating, 0) / recs.length
+}
+
+function recommendPct(recs: EventRecommendation[]) {
+  if (recs.length === 0) return 0
+  return Math.round((recs.filter((r) => r.wouldRecommend).length / recs.length) * 100)
+}
+
+function StarsReadOnly({ value, size = 14 }: { value: number; size?: number }) {
+  return (
+    <div className="flex gap-0.5" aria-label={`${value} out of 5 stars`}>
+      {[1, 2, 3, 4, 5].map((s) => (
+        <Star
+          key={s}
+          size={size}
+          strokeWidth={0}
+          fill="currentColor"
+          style={{ color: s <= Math.round(value) ? "var(--brand)" : "var(--border-strong)" }}
+        />
+      ))}
+    </div>
+  )
+}
+
 type EventItem = HubEvent
 type RecommendedEvent = EventItem & { reason: string }
 
@@ -493,6 +658,7 @@ type EventWorkflowValue = {
   events: HubEvent[]
   notifications: AppNotification[]
   published: HubEvent[]
+  recommendations: EventRecommendation[]
   submitEvent: (input: {
     name: string
     desc: string
@@ -507,6 +673,15 @@ type EventWorkflowValue = {
   forwardToStudentAffairs: (id: number, advisorNote?: string) => void
   confirmEvent: (id: number) => void
   denyEvent: (id: number, reason: string) => void
+  submitRecommendation: (input: {
+    event: HubEvent
+    rating: number
+    wouldRecommend: boolean
+    whatWorked: string
+    whatToImprove: string
+    anonymous: boolean
+  }) => void
+  hasStudentRated: (eventId: number, studentId?: string) => boolean
   urgentCountFor: (role: Role) => number
 }
 
@@ -521,7 +696,9 @@ function useEventWorkflow() {
 function EventWorkflowProvider({ children }: { children: ReactNode }) {
   const [events, setEvents] = useState<HubEvent[]>(INITIAL_HUB_EVENTS)
   const [notifications, setNotifications] = useState<AppNotification[]>(INITIAL_NOTIFICATIONS)
+  const [recommendations, setRecommendations] = useState<EventRecommendation[]>(MOCK_RECOMMENDATIONS)
   const nextNotifId = useRef(Math.max(...INITIAL_NOTIFICATIONS.map((n) => n.id)) + 1)
+  const nextRecId = useRef(MOCK_RECOMMENDATIONS.length + 1)
 
   const pushNotif = useCallback((notif: Omit<AppNotification, "id">) => {
     const id = nextNotifId.current++
@@ -668,6 +845,58 @@ function EventWorkflowProvider({ children }: { children: ReactNode }) {
     })
   }, [pushNotif])
 
+  const hasStudentRated = useCallback(
+    (eventId: number, studentId = "202210301") =>
+      recommendations.some((r) => r.eventId === String(eventId) && r.studentId === studentId),
+    [recommendations]
+  )
+
+  const submitRecommendation = useCallback(
+    (input: {
+      event: HubEvent
+      rating: number
+      wouldRecommend: boolean
+      whatWorked: string
+      whatToImprove: string
+      anonymous: boolean
+    }) => {
+      const studentId = "202210301"
+        const studentName = "Sarah Al-Mutairi"
+      if (recommendations.some((r) => r.eventId === String(input.event.id) && r.studentId === studentId)) return
+
+      const rec: EventRecommendation = {
+        id: `rec-${nextRecId.current++}`,
+        eventId: String(input.event.id),
+        eventTitle: input.event.title,
+        clubId: clubIdForName(input.event.club),
+        clubName: input.event.club,
+        studentId,
+        studentName,
+        anonymous: input.anonymous,
+        rating: input.rating,
+        wouldRecommend: input.wouldRecommend,
+        whatWorked: input.whatWorked.trim(),
+        whatToImprove: input.whatToImprove.trim(),
+        submittedAt: `${formatEventDate()} · Just now`,
+      }
+      setRecommendations((prev) => [rec, ...prev])
+
+      const notifBody = `New event recommendation for “${input.event.title}” — ${input.rating}/5 stars`
+      ;(["president", "advisor", "committee"] as Role[]).forEach((role) => {
+        pushNotif({
+          role,
+          icon: Star,
+          title: "New Event Recommendation",
+          body: notifBody,
+          time: "Just now",
+          urgent: false,
+          relatedEventId: input.event.id,
+        })
+      })
+    },
+    [pushNotif, recommendations]
+  )
+
   const published = useMemo(() => publishedEvents(events), [events])
   const urgentCountFor = useCallback(
     (role: Role) => notifications.filter((n) => n.role === role && n.urgent).length,
@@ -679,13 +908,28 @@ function EventWorkflowProvider({ children }: { children: ReactNode }) {
       events,
       notifications,
       published,
+      recommendations,
       submitEvent,
       forwardToStudentAffairs,
       confirmEvent,
       denyEvent,
+      submitRecommendation,
+      hasStudentRated,
       urgentCountFor,
     }),
-    [events, notifications, published, submitEvent, forwardToStudentAffairs, confirmEvent, denyEvent, urgentCountFor]
+    [
+      events,
+      notifications,
+      published,
+      recommendations,
+      submitEvent,
+      forwardToStudentAffairs,
+      confirmEvent,
+      denyEvent,
+      submitRecommendation,
+      hasStudentRated,
+      urgentCountFor,
+    ]
   )
 
   return <EventWorkflowContext.Provider value={value}>{children}</EventWorkflowContext.Provider>
@@ -1673,6 +1917,302 @@ function FeaturedHeroBanner() {
   )
 }
 
+function EventFeedbackForm({
+  event,
+  onClose,
+}: {
+  event: HubEvent
+  onClose: () => void
+}) {
+  const { submitRecommendation } = useEventWorkflow()
+  const [rating, setRating] = useState(0)
+  const [wouldRecommend, setWouldRecommend] = useState(true)
+  const [whatWorked, setWhatWorked] = useState("")
+  const [whatToImprove, setWhatToImprove] = useState("")
+  const [anonymous, setAnonymous] = useState(false)
+  const [done, setDone] = useState(false)
+
+  const inputCls = "w-full px-4 py-3 rounded-xl text-sm outline-none border transition-all duration-200 focus:border-[var(--brand)]"
+  const inputStyle: CSSProperties = { borderColor: "var(--border)", background: "var(--surface-sunken)", color: "var(--text-primary)" }
+
+  if (done) {
+    return (
+      <Card className="animate-scale-in">
+        <div className="flex flex-col items-center text-center py-4 gap-3">
+          <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: "var(--success-pale)" }}>
+            <CheckCircle2 size={24} strokeWidth={2} color="var(--success)" />
+          </div>
+          <p className="font-display font-bold text-[16px]" style={{ color: "var(--text-primary)" }}>Thanks for your feedback</p>
+          <p className="text-sm max-w-md leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+            This was shared with {event.club}'s president, advisor, and Student Affairs.
+          </p>
+          <Button variant="secondary" size="sm" onClick={onClose}>Done</Button>
+        </div>
+      </Card>
+    )
+  }
+
+  return (
+    <Card className="animate-scale-in space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[10.5px] font-bold mono uppercase tracking-widest" style={{ color: "var(--brand)" }}>Event feedback</p>
+          <p className="font-display font-bold text-[15px] mt-1" style={{ color: "var(--text-primary)" }}>{event.title}</p>
+          <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{event.club} · {event.date}</p>
+        </div>
+        <Button size="sm" variant="ghost" icon={X} onClick={onClose}>Close</Button>
+      </div>
+
+      <div>
+        <p className="text-[10.5px] font-bold mono uppercase tracking-widest mb-2" style={{ color: "var(--text-secondary)" }}>Your rating</p>
+        <StarRating value={rating} onChange={setRating} />
+      </div>
+
+      <div>
+        <p className="text-[10.5px] font-bold mono uppercase tracking-widest mb-2" style={{ color: "var(--text-secondary)" }}>
+          Would you recommend this event to others?
+        </p>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant={wouldRecommend ? "primary" : "secondary"}
+            icon={ThumbsUp}
+            onClick={() => setWouldRecommend(true)}
+          >
+            Yes
+          </Button>
+          <Button
+            size="sm"
+            variant={!wouldRecommend ? "primary" : "secondary"}
+            icon={ThumbsDown}
+            onClick={() => setWouldRecommend(false)}
+          >
+            No
+          </Button>
+        </div>
+      </div>
+
+      <div>
+        <label className="text-[10.5px] font-bold mono uppercase tracking-widest block mb-1.5" style={{ color: "var(--text-secondary)" }}>
+          What worked well? <span style={{ color: "var(--text-muted)" }}>(optional)</span>
+        </label>
+        <textarea
+          rows={2}
+          value={whatWorked}
+          onChange={(e) => setWhatWorked(e.target.value)}
+          placeholder="Speakers, organization, atmosphere…"
+          className={`${inputCls} resize-none`}
+          style={inputStyle}
+        />
+      </div>
+
+      <div>
+        <label className="text-[10.5px] font-bold mono uppercase tracking-widest block mb-1.5" style={{ color: "var(--text-secondary)" }}>
+          What should improve? <span style={{ color: "var(--text-muted)" }}>(optional)</span>
+        </label>
+        <textarea
+          rows={2}
+          value={whatToImprove}
+          onChange={(e) => setWhatToImprove(e.target.value)}
+          placeholder="Timing, venue, content…"
+          className={`${inputCls} resize-none`}
+          style={inputStyle}
+        />
+      </div>
+
+      <label className="flex items-center gap-2.5 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={anonymous}
+          onChange={(e) => setAnonymous(e.target.checked)}
+          className="w-4 h-4 accent-[var(--brand)]"
+        />
+        <span className="text-sm" style={{ color: "var(--text-secondary)" }}>Submit anonymously</span>
+      </label>
+
+      <Button
+        variant="primary"
+        icon={Star}
+        disabled={rating < 1}
+        onClick={() => {
+          submitRecommendation({
+            event,
+            rating,
+            wouldRecommend,
+            whatWorked,
+            whatToImprove,
+            anonymous,
+          })
+          setDone(true)
+        }}
+      >
+        Submit feedback
+      </Button>
+    </Card>
+  )
+}
+
+function RateEventHubButton({ event }: { event: HubEvent }) {
+  const { hasStudentRated } = useEventWorkflow()
+  const [open, setOpen] = useState(false)
+  const rated = hasStudentRated(event.id)
+
+  if (open) {
+    return (
+      <div className="basis-full w-full mt-1">
+        <EventFeedbackForm event={event} onClose={() => setOpen(false)} />
+      </div>
+    )
+  }
+
+  if (rated) {
+    return (
+      <Button size="sm" variant="secondary" icon={CheckCircle2} disabled>
+        Feedback submitted
+      </Button>
+    )
+  }
+
+  return (
+    <Button size="sm" variant="primary" icon={Star} onClick={() => setOpen(true)}>
+      Rate this event
+    </Button>
+  )
+}
+
+function PastEventsFeedbackSection({ registered }: { registered: number[] }) {
+  const { published, hasStudentRated } = useEventWorkflow()
+  const [activeId, setActiveId] = useState<number | null>(null)
+  const now = Date.now()
+
+  const pastAttended = published
+    .filter((ev) => {
+      if (!registered.includes(ev.id)) return false
+      const end = parseEventStart(ev.date, ev.time).getTime() + EVENT_DURATION_MS
+      return end < now
+    })
+    .sort((a, b) => parseEventStart(b.date, b.time).getTime() - parseEventStart(a.date, a.time).getTime())
+
+  if (pastAttended.length === 0) return null
+
+  const active = pastAttended.find((ev) => ev.id === activeId) ?? null
+
+  return (
+    <div>
+      <SectionHeader
+        eyebrow="After the event"
+        title="Rate events you attended"
+        subtitle="Your feedback goes to the club president, advisor, and Student Affairs."
+      />
+      {active ? (
+        <div className="mt-4">
+          <EventFeedbackForm event={active} onClose={() => setActiveId(null)} />
+        </div>
+      ) : (
+        <div className="grid md:grid-cols-2 gap-4 mt-4">
+          {pastAttended.map((ev) => {
+            const rated = hasStudentRated(ev.id)
+            return (
+              <Card key={ev.id} hover padding="p-0" className="overflow-hidden">
+                <div className="relative h-28 overflow-hidden">
+                  <img src={ev.image} alt={ev.title} className="w-full h-full object-cover" />
+                  <div className="absolute top-3 start-3">
+                    <Badge label={ev.category} color={ev.color} />
+                  </div>
+                </div>
+                <div className="p-4">
+                  <p className="font-display font-bold text-[13.5px]" style={{ color: "var(--text-primary)" }}>{ev.title}</p>
+                  <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{ev.club} · {ev.date}</p>
+                  <div className="mt-3">
+                    {rated ? (
+                      <Button size="sm" variant="secondary" icon={CheckCircle2} disabled>
+                        Feedback submitted
+                      </Button>
+                    ) : (
+                      <Button size="sm" variant="primary" icon={Star} onClick={() => setActiveId(ev.id)}>
+                        Rate this event
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RecommendationCommentList({ recs }: { recs: EventRecommendation[] }) {
+  if (recs.length === 0) {
+    return <p className="text-sm" style={{ color: "var(--text-secondary)" }}>No recommendations yet.</p>
+  }
+  return (
+    <div className="space-y-2.5 max-h-72 overflow-y-auto pe-1">
+      {recs.map((rec) => (
+        <div key={rec.id} className="p-3.5 rounded-xl" style={{ background: "var(--surface-sunken)" }}>
+          <div className="flex items-start justify-between gap-3 mb-1.5">
+            <div className="min-w-0">
+              <p className="text-[13px] font-semibold" style={{ color: "var(--text-primary)" }}>
+                {recommendationDisplayName(rec)}
+              </p>
+              <p className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>
+                {rec.eventTitle} · {rec.submittedAt}
+              </p>
+            </div>
+            <div className="shrink-0 flex flex-col items-end gap-1">
+              <StarsReadOnly value={rec.rating} />
+              <span
+                className="text-[10px] font-bold mono uppercase tracking-wide"
+                style={{ color: rec.wouldRecommend ? "var(--success)" : "var(--danger)" }}
+              >
+                {rec.wouldRecommend ? "Would recommend" : "Would not"}
+              </span>
+            </div>
+          </div>
+          {rec.whatWorked && (
+            <p className="text-xs mt-2 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+              <span className="font-semibold" style={{ color: "var(--text-primary)" }}>Worked: </span>
+              {rec.whatWorked}
+            </p>
+          )}
+          {rec.whatToImprove && (
+            <p className="text-xs mt-1 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+              <span className="font-semibold" style={{ color: "var(--text-primary)" }}>Improve: </span>
+              {rec.whatToImprove}
+            </p>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function RecommendationStats({ recs }: { recs: EventRecommendation[] }) {
+  const avg = avgRating(recs)
+  const pct = recommendPct(recs)
+  return (
+    <div className="grid grid-cols-2 gap-3 mb-4">
+      <div className="rounded-xl p-4" style={{ background: "var(--surface-sunken)" }}>
+        <p className="text-[10.5px] font-bold mono uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>Avg rating</p>
+        <p className="font-display text-[28px] font-extrabold mt-1 tabular-nums" style={{ color: "var(--text-primary)" }}>
+          {recs.length ? avg.toFixed(1) : "—"}
+          <span className="text-sm font-semibold ms-1" style={{ color: "var(--text-muted)" }}>/ 5</span>
+        </p>
+        <div className="mt-1"><StarsReadOnly value={avg} /></div>
+      </div>
+      <div className="rounded-xl p-4" style={{ background: "var(--surface-sunken)" }}>
+        <p className="text-[10.5px] font-bold mono uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>Would recommend</p>
+        <p className="font-display text-[28px] font-extrabold mt-1 tabular-nums" style={{ color: "var(--brand)" }}>
+          {recs.length ? `${pct}%` : "—"}
+        </p>
+        <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{recs.length} response{recs.length === 1 ? "" : "s"}</p>
+      </div>
+    </div>
+  )
+}
+
 function StudentFeed({ registered }: { registered: number[] }) {
   const { published } = useEventWorkflow()
   const todaySchedule = published
@@ -1694,6 +2234,8 @@ function StudentFeed({ registered }: { registered: number[] }) {
         <StatCard label="YU Points" value="1,840" sub="Rank #47" icon={Sparkles} accent="var(--brand)" delay={80} />
         <StatCard label="Certificates" value={5} sub="Earned" icon={Award} accent="var(--success)" delay={120} />
       </div>
+
+      <PastEventsFeedbackSection registered={registered} />
 
       <div className="grid md:grid-cols-2 gap-5">
         <Card>
@@ -1865,14 +2407,19 @@ function EventsHub({
                   <ProgressBar value={ev.registered} max={ev.capacity} color={ev.color} />
                   <p className="text-[11px] mt-1.5 mono" style={{ color: "var(--text-muted)" }}>{ev.registered} / {ev.capacity} spots filled</p>
                 </div>
-                <div className="mt-5">
-                  <Button
-                    variant={isReg ? "secondary" : "primary"}
-                    icon={isReg ? CheckCircle2 : Ticket}
-                    onClick={() => setRegistered((prev) => isReg ? prev.filter((id) => id !== ev.id) : [...prev, ev.id])}
-                  >
-                    {isReg ? "Registered" : "Register / RSVP"}
-                  </Button>
+                <div className="mt-5 space-y-3">
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant={isReg ? "secondary" : "primary"}
+                      icon={isReg ? CheckCircle2 : Ticket}
+                      onClick={() => setRegistered((prev) => isReg ? prev.filter((id) => id !== ev.id) : [...prev, ev.id])}
+                    >
+                      {isReg ? "Registered" : "Register / RSVP"}
+                    </Button>
+                    {isReg && Date.now() >= start + EVENT_DURATION_MS && (
+                      <RateEventHubButton event={ev} />
+                    )}
+                  </div>
                 </div>
               </div>
             </Card>
@@ -2083,7 +2630,7 @@ function RewardsView() {
 
 // ─── President views ──────────────────────────────────────────────────────────
 function CommandCenter() {
-  const { events, published } = useEventWorkflow()
+  const { events, published, recommendations } = useEventWorkflow()
   const clubName = "Google Developer Student Club"
   const now = Date.now()
   const pipeline = events.filter((ev) => ev.club === clubName && ev.status !== "published" && ev.status !== "denied")
@@ -2098,6 +2645,8 @@ function CommandCenter() {
     .filter((item) => item.status === "live" || item.status === "upcoming")
     .sort((a, b) => a.start - b.start)
 
+  const clubRecs = recommendations.filter((r) => r.clubName === clubName)
+
   return (
     <div className="space-y-6">
       <SectionHeader eyebrow={clubName} title="Command Center" subtitle="Spring 2026 semester overview" />
@@ -2108,6 +2657,18 @@ function CommandCenter() {
         <StatCard label="Events This Sem." value={8} sub={`${activeUpcoming.length} upcoming`} icon={Rocket} accent="var(--info)" delay={80} />
         <StatCard label="Avg. Attendance" value="78%" sub="Up from 65%" icon={TrendingUp} accent="var(--success)" delay={120} />
       </div>
+
+      <Card>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="font-display font-bold text-[15px]" style={{ color: "var(--text-primary)" }}>Recent Recommendations</h3>
+            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>Student feedback on your club's events</p>
+          </div>
+          <Badge label={`${clubRecs.length} total`} color="var(--brand)" />
+        </div>
+        <RecommendationStats recs={clubRecs} />
+        <RecommendationCommentList recs={clubRecs} />
+      </Card>
 
       {pipeline.length > 0 && (
         <Card>
@@ -2703,6 +3264,25 @@ function ApprovalsView() {
 }
 
 function AdvisorAnalytics() {
+  const { recommendations } = useEventWorkflow()
+  const supervisedClubs = CLUBS.slice(0, 3).map((c) => c.name)
+  const scoped = recommendations.filter((r) => supervisedClubs.includes(r.clubName))
+  const [clubFilter, setClubFilter] = useState("All")
+  const [eventFilter, setEventFilter] = useState("All")
+
+  const clubOptions = ["All", ...Array.from(new Set(scoped.map((r) => r.clubName)))]
+  const eventOptions = ["All", ...Array.from(new Set(
+    scoped
+      .filter((r) => clubFilter === "All" || r.clubName === clubFilter)
+      .map((r) => r.eventTitle)
+  ))]
+
+  const filtered = scoped.filter((r) => {
+    if (clubFilter !== "All" && r.clubName !== clubFilter) return false
+    if (eventFilter !== "All" && r.eventTitle !== eventFilter) return false
+    return true
+  })
+
   return (
     <div className="space-y-6">
       <SectionHeader title="Club Performance Analytics" subtitle="Spring 2026 semester overview for supervised clubs." />
@@ -2712,6 +3292,35 @@ function AdvisorAnalytics() {
         <StatCard label="Events Approved" value={14} sub="This semester" icon={ClipboardCheck} accent="var(--success)" delay={40} />
         <StatCard label="Students Reached" value="2,140" icon={GraduationCap} accent="var(--info)" delay={80} />
       </div>
+
+      <Card>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div>
+            <h3 className="font-display font-bold text-[15px]" style={{ color: "var(--text-primary)" }}>Student Recommendations</h3>
+            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>Feedback across clubs you oversee</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <select
+              value={clubFilter}
+              onChange={(e) => { setClubFilter(e.target.value); setEventFilter("All") }}
+              className="px-3 py-2 rounded-xl text-xs font-semibold border outline-none"
+              style={{ borderColor: "var(--border)", background: "var(--surface-sunken)", color: "var(--text-primary)" }}
+            >
+              {clubOptions.map((c) => <option key={c} value={c}>{c === "All" ? "All clubs" : c}</option>)}
+            </select>
+            <select
+              value={eventFilter}
+              onChange={(e) => setEventFilter(e.target.value)}
+              className="px-3 py-2 rounded-xl text-xs font-semibold border outline-none"
+              style={{ borderColor: "var(--border)", background: "var(--surface-sunken)", color: "var(--text-primary)" }}
+            >
+              {eventOptions.map((e) => <option key={e} value={e}>{e === "All" ? "All events" : e}</option>)}
+            </select>
+          </div>
+        </div>
+        <RecommendationStats recs={filtered} />
+        <RecommendationCommentList recs={filtered} />
+      </Card>
 
       {CLUBS.slice(0, 3).map((club) => {
         const engagement = [78, 91, 65][club.id - 1] ?? 70
@@ -3044,6 +3653,29 @@ function CertificationsView() {
 }
 
 function CommitteeAnalytics() {
+  const { recommendations } = useEventWorkflow()
+  const [sortLowest, setSortLowest] = useState(true)
+  const [clubFilter, setClubFilter] = useState("All")
+
+  const clubOptions = ["All", ...Array.from(new Set(recommendations.map((r) => r.clubName)))]
+  const scoped = recommendations.filter((r) => clubFilter === "All" || r.clubName === clubFilter)
+
+  const byEvent = Object.values(
+    scoped.reduce<Record<string, EventRecommendation[]>>((acc, rec) => {
+      ;(acc[rec.eventTitle] ??= []).push(rec)
+      return acc
+    }, {})
+  ).map((recs) => ({
+    eventTitle: recs[0].eventTitle,
+    clubName: recs[0].clubName,
+    recs,
+    avg: avgRating(recs),
+  }))
+
+  byEvent.sort((a, b) => (sortLowest ? a.avg - b.avg : b.avg - a.avg))
+
+  const flatSorted = byEvent.flatMap((g) => g.recs)
+
   return (
     <div className="space-y-6">
       <SectionHeader title="University-Wide Analytics" subtitle="Student engagement and club activity across YU, Spring 2026." />
@@ -3054,6 +3686,56 @@ function CommitteeAnalytics() {
         <StatCard label="Active Clubs" value={18} sub="Out of 22 registered" icon={Users} accent="#8A63D6" delay={80} />
         <StatCard label="Attendance Rate" value="81%" sub="Avg. per event" icon={TrendingUp} accent="var(--success)" delay={120} />
       </div>
+
+      <Card>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div>
+            <h3 className="font-display font-bold text-[15px]" style={{ color: "var(--text-primary)" }}>Event Recommendations</h3>
+            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>Campus-wide student feedback — spot events that need attention</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <select
+              value={clubFilter}
+              onChange={(e) => setClubFilter(e.target.value)}
+              className="px-3 py-2 rounded-xl text-xs font-semibold border outline-none"
+              style={{ borderColor: "var(--border)", background: "var(--surface-sunken)", color: "var(--text-primary)" }}
+            >
+              {clubOptions.map((c) => <option key={c} value={c}>{c === "All" ? "All clubs" : c}</option>)}
+            </select>
+            <Button
+              size="sm"
+              variant={sortLowest ? "primary" : "secondary"}
+              onClick={() => setSortLowest((v) => !v)}
+            >
+              {sortLowest ? "Lowest rated first" : "Highest rated first"}
+            </Button>
+          </div>
+        </div>
+        <RecommendationStats recs={scoped} />
+        {byEvent.length > 0 && (
+          <div className="mb-4 space-y-2">
+            {byEvent.map((g) => (
+              <div
+                key={g.eventTitle}
+                className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border"
+                style={{ borderColor: "var(--border)", background: "var(--card)" }}
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>{g.eventTitle}</p>
+                  <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{g.clubName} · {g.recs.length} responses</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <StarsReadOnly value={g.avg} />
+                  <span className="font-display font-bold tabular-nums text-sm" style={{ color: g.avg < 3.5 ? "var(--danger)" : "var(--text-primary)" }}>
+                    {g.avg.toFixed(1)}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        <RecommendationCommentList recs={flatSorted} />
+      </Card>
 
       <Card>
         <h3 className="font-display font-bold text-sm mb-4" style={{ color: "var(--text-primary)" }}>Vision 2030 Event Alignment</h3>
