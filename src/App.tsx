@@ -228,13 +228,19 @@ function parseEventStart(dateStr: string, timeStr: string) {
 
 const TODAY_LABEL = formatEventDate()
 
-const AUDITORIUMS = [
-  "Tuwaiq Auditorium",
-  "Main Lecture Hall",
-  "Theater Hall",
-  "Innovation Hub, B2",
-  "Business School Auditorium",
-] as const
+const AUDITORIUMS: { en: string; ar: string }[] = [
+  { en: "Tuwaiq", ar: "طويق" },
+  { en: "Small Najd", ar: "نجد الصغير" },
+  { en: "Great Najd", ar: "نجد الكبير" },
+  { en: "Ahad Shahbaz & Ahmed Al-Issa", ar: "أحاد شهباز و أحمد العيسى" },
+  { en: "Al-Khudair Grand Theater", ar: "المسرح الكبير الخضير" },
+]
+
+function auditoriumLabel(name: string, isAr: boolean) {
+  const match = AUDITORIUMS.find((h) => h.en === name || h.ar === name)
+  if (!match) return name
+  return isAr ? match.ar : match.en
+}
 
 // ─── Shared color system (mirrors CSS custom properties in index.css) ───────
 const CATEGORY_COLORS: Record<string, string> = {
@@ -261,7 +267,7 @@ const INITIAL_HUB_EVENTS: HubEvent[] = [
     submittedBy: "Ahmed Al-Zahrani",
     date: TODAY_LABEL,
     time: "1:00 PM",
-    location: "Tuwaiq Auditorium",
+    location: "Tuwaiq",
     requirements: "Projector, stage mics, seating for 250, livestream setup",
     category: "Tech",
     capacity: 250,
@@ -279,7 +285,7 @@ const INITIAL_HUB_EVENTS: HubEvent[] = [
     submittedBy: "Lina Al-Ghamdi",
     date: TODAY_LABEL,
     time: "9:00 AM",
-    location: "Innovation Hub, B2",
+    location: "Ahad Shahbaz & Ahmed Al-Issa",
     requirements: "Worktables, power strips, whiteboards, light catering",
     category: "Academic",
     capacity: 80,
@@ -315,7 +321,7 @@ const INITIAL_HUB_EVENTS: HubEvent[] = [
     submittedBy: "Sara Al-Otaibi",
     date: "Aug 15, 2026",
     time: "11:00 AM",
-    location: "Business School Auditorium",
+    location: "Great Najd",
     requirements: "Lecture AV, breakout rooms, printed workbooks",
     category: "Academic",
     capacity: 60,
@@ -351,7 +357,7 @@ const INITIAL_HUB_EVENTS: HubEvent[] = [
     submittedBy: "Ahmed Al-Zahrani",
     date: "Aug 18, 2026",
     time: "6:00 PM",
-    location: "Theater Hall",
+    location: "Al-Khudair Grand Theater",
     requirements: "Projector, handheld mics, lounge seating",
     category: "Tech",
     capacity: 120,
@@ -369,7 +375,7 @@ const INITIAL_HUB_EVENTS: HubEvent[] = [
     submittedBy: "Ahmed Al-Zahrani",
     date: "Aug 12, 2026",
     time: "2:00 PM",
-    location: "Tuwaiq Auditorium",
+    location: "Tuwaiq",
     requirements: "Laptops required, projector, whiteboard, seating for 100",
     category: "Tech",
     capacity: 100,
@@ -387,7 +393,7 @@ const INITIAL_HUB_EVENTS: HubEvent[] = [
     submittedBy: "Turki Al-Anzi",
     date: "Aug 25, 2026",
     time: "10:00 AM",
-    location: "Main Lecture Hall",
+    location: "Small Najd",
     requirements: "Travel roster, briefing AV, chaperone coordination",
     category: "Academic",
     capacity: 40,
@@ -2213,12 +2219,13 @@ function CommandCenter() {
 
 function CreateEvent() {
   const { submitEvent } = useEventWorkflow()
+  const { isAr } = useLang()
   const emptyForm = {
     name: "",
     desc: "",
     date: "",
     time: "",
-    auditorium: AUDITORIUMS[0] as string,
+    auditorium: AUDITORIUMS[0].en,
     requirements: "",
     capacity: "",
     category: "Tech",
@@ -2314,7 +2321,9 @@ function CreateEvent() {
             style={inputStyle}
           >
             {AUDITORIUMS.map((hall) => (
-              <option key={hall} value={hall}>{hall}</option>
+              <option key={hall.en} value={hall.en}>
+                {isAr ? hall.ar : hall.en}
+              </option>
             ))}
           </select>
         </div>
@@ -2534,6 +2543,7 @@ function MembersView() {
 
 // ─── Advisor views ────────────────────────────────────────────────────────────
 function EventDetailBlock({ event }: { event: HubEvent }) {
+  const { isAr } = useLang()
   return (
     <div className="grid md:grid-cols-2 gap-3 mb-4">
       <div className="rounded-xl p-3.5" style={{ background: "var(--surface-sunken)" }}>
@@ -2548,7 +2558,7 @@ function EventDetailBlock({ event }: { event: HubEvent }) {
         <MapPin size={14} strokeWidth={2} className="mt-0.5 shrink-0" style={{ color: "var(--brand)" }} />
         <div>
           <p className="text-[10px] font-bold mono uppercase tracking-widest mb-1" style={{ color: "var(--text-muted)" }}>Auditorium / Venue</p>
-          <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{event.location}</p>
+          <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{auditoriumLabel(event.location, isAr)}</p>
         </div>
       </div>
       <div className="rounded-xl p-3.5 flex items-start gap-2.5" style={{ background: "var(--surface-sunken)" }}>
